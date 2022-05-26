@@ -1,4 +1,5 @@
 
+% Operators for Chainlog syntax.
 :- op(1100, xfy, or).
 :- op(900, fy, not).
 
@@ -7,26 +8,8 @@ _ or Y :- Y.
 
 not X :- \+ X.
 
-age(john, 33).
-age(peter, 43).
-age(alice, 13).
-age(felix, 5).
-age(joan, 90).
-age(test1, Y) :- number(Y), Y > 100.
-age(frank, 55).
-age(martin, 41).
-age(alex, 24).
-age(test2, Y) :- number(Y), Y > 100.
-age(myrtle, 69).
 
-old(X) :- age(X, Age), Age >= 40 or member(X, [test1, test2]).
-
-bad(X, Y) :- number(X) -> Y = 3 ; Y = 5.
-
-
-% Chainlog built-in predicates
-
-% ISO
+% Chainlog built-in predicates (ISO Prolog built-ins)
 chainlog_builtin(_ =:= _).
 chainlog_builtin(_ =\= _).
 chainlog_builtin(_ < _).
@@ -34,9 +17,6 @@ chainlog_builtin(_ =< _).
 chainlog_builtin(_ > _).
 chainlog_builtin(_ >= _).
 chainlog_builtin(_ is _).
-chainlog_builtin(bagof(_, _, _)).
-chainlog_builtin(findall(_, _, _)). % TODO redefine so that it calls query with depth limit
-chainlog_builtin(setof(_, _, _)).
 chainlog_builtin(_ @=< _).
 chainlog_builtin(_ == _).
 chainlog_builtin(_ \== _).
@@ -60,10 +40,9 @@ chainlog_builtin(nonvar(_)).
 chainlog_builtin(number(_)).
 chainlog_builtin(ground(_)).
 
-% Non-ISO (TODO need defining)
+% Library predicates (TODO need defining)
 chainlog_builtin(between(_, _, _)).
 
-% Lists (TODO need defining)
 chainlog_builtin(member(_, _)).
 chainlog_builtin(append(_, _, _)).
 chainlog_builtin(length(_, _)).
@@ -71,20 +50,22 @@ chainlog_builtin(select(_, _, _)).
 chainlog_builtin(nth0(_, _, _)).
 chainlog_builtin(nth1(_, _, _)).
 
-user_defined_pi(PI) :-
-  current_predicate(PI).
+chainlog_builtin(bagof(_, _, _)).
+chainlog_builtin(findall(_, _, _)). % TODO redefine so that it calls query with depth limit
+chainlog_builtin(setof(_, _, _)).
+
 
 % Query interpreter.
-query(Goal) :-
+chainlog_query(Goal) :-
   chainlog_builtin(Goal), !,
   call(Goal).
-query((G1, G2)) :-
-  !, query(G1), query(G2).
-query(not Goal) :-
-  !, \+ Goal.
-query(G1 or G2) :-
-  !, (query(G1) ; query(G2)).
-query(Goal) :-
+chainlog_query((G1, G2)) :-
+  !, chainlog_query(G1), chainlog_query(G2).
+chainlog_query(not Goal) :-
+  !, \+ chainlog_query(Goal).
+chainlog_query(G1 or G2) :-
+  !, (chainlog_query(G1) ; chainlog_query(G2)).
+chainlog_query(Goal) :-
   clause(Goal, Body),
-  query(Body).
+  chainlog_query(Body).
 
