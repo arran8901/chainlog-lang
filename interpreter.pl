@@ -1,5 +1,5 @@
 
-% Operators for Chainlog syntax.
+% Chainlog syntax.
 :- op(1100, xfy, or).
 :- op(900, fy, not).
 
@@ -7,6 +7,12 @@ X or _ :- X.
 _ or Y :- Y.
 
 not X :- \+ X.
+
+:- op(1200, fx, on).
+:- op(1150, xfx, :).
+:- op(1050, fx, require).
+:- op(1050, fx, if).
+:- op(1050, fx, do).
 
 
 % Chainlog built-in predicates (ISO Prolog built-ins)
@@ -68,4 +74,42 @@ chainlog_query(G1 or G2) :-
 chainlog_query(Goal) :-
   clause(Goal, Body),
   chainlog_query(Body).
+
+
+% Message interpreter
+chainlog_msg(MsgTerm, MsgInfo, ActionsList) :-
+  % Attempt to unify MsgTerm with a message handler, then call the handler.
+  (on MsgTerm: Body),
+  call_msg_handler(Body, MsgInfo, ActionsList).
+chainlog_msg(MsgTerm, _, _) :-
+  % If no message handler
+  throw(error(match_error(msg_handler, MsgTerm), 'No matching message handler')).
+
+% call_msg_handler(+Body, +MsgInfo, -ActionsList)
+%
+% Succeeds if all `require` and `if` conditions succeed and unifies ActionsList with the list
+% of actions to be executed.
+% Fails if any `if` condition fails.
+% Throws `require_error` if any `require` condition fails.
+%
+% Body: a single do clause `do Actions` or composite (BodyClause ; BodyClauses).
+% MsgInfo: TODO.
+% ActionsList: a list of actions [Action1, ..., ActionN].
+call_msg_handler((do Actions), MsgInfo, ActionsList) :-
+  !, collect_actions(Actions, MsgInfo, ActionsList).
+%call_msg_handler((require Literals ; Rest), Msg) :- fail.
+
+% collect_actions(+Actions, +MsgInfo, -ActionsList)
+%
+% Converts ','-separated Actions to a list.
+% Always succeeds. Unifies ActionsList with the list of collected actions.
+%
+% Action: a single action or composite (Action , Actions).
+% MsgInfo: TODO.
+% ActionsList: a list of actions [Action1, ..., ActionN].
+collect_actions((Action, Actions), MsgInfo, [Action | ActionsList]) :-
+  !, collect_actions(Actions, MsgInfo, ActionsList).
+collect_actions(Action, _, [Action]).
+
+
 
