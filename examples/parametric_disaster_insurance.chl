@@ -1,0 +1,65 @@
+policyholder(0x1234).
+data_source(0xABCD).
+insurer(0xA1B2).
+policy_expiration(1652918400).
+payout_limit(100).
+
+
+% Typhoon policy
+cyclone_category(violent_typhoon, T) :- wind_speed(WindSpeedKnots, T),
+                                        WindSpeedKnots >= 105.
+cyclone_category(v_strong_typhoon, T) :- wind_speed(WindSpeedKnots, T),
+	   									                   WindSpeedKnots >= 85,
+	   									                   WindSpeedKnots < 105.
+cyclone_category(typhoon, T) :- wind_speed(WindSpeedKnots, T),
+	   							              WindSpeedKnots >= 64,
+	   							              WindSpeedKnots < 85.
+
+payout_percentage(100) :- cyclone_category(violent_typhoon, _T).
+payout_percentage(80) :- cyclone_category(v_strong_typhoon, _T).
+payout_percentage(40) :- cyclone_category(typhoon, _T).
+
+
+% Earthquake policy
+payout_percentage(100) :- seismic_intensity(Intensity, _T),
+                          Intensity = '6+' or
+                          Intensity = '7'.
+payout_percentage(80) :- seismic_intensity(Intensity, _T),
+                         Intensity = '6-'.
+payout_percentage(40) :- seismic_intensity(Intensity, _T),
+                         Intensity = '5+'.
+
+
+% Rainfall policy
+ten_day_rainfall(TenDayMM) :-
+  rainfall(_, D1),
+  add_time(D1, 10 days, D2),
+  sum_all(DayMM, (rainfall(D, DayMM), D >= D1, D < D2), TenDayMM).
+
+payout_percentage(100) :- ten_day_rainfall(TenDayMM), TenDayMM > 800.
+
+
+% Payout calculation
+payout(Value) :- payout_limit(Limit),
+                 payout_percentage(Percentage),
+                 Value is Limit * Percentage / 100.
+
+
+% Message handlers
+on disasterData(Data):
+	require sender(Sender), data_source(Sender);
+  do      assert(Data).
+
+on claimPayout:
+	require sender(Sender), policyholder(Sender);
+  require not claimed;
+  require time(T), policy_expiration(ExpirationDate), T < ExpirationDate;
+  if      payout(Value);
+  do      assert(claimed),
+	        transfer(Sender, Value).
+
+on terminate:
+  require time(T), policy_expiration(ExpirationDate), T > ExpirationDate;
+  if      insurer(Insurer), balance(Balance);
+  do      transfer(Insurer, Balance).
+
