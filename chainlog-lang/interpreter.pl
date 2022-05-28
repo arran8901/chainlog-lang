@@ -14,8 +14,11 @@ not X :- \+ X.
 :- op(1050, fx, if).
 :- op(1050, fx, do).
 
+% Trivial `on` definition to ensure the predicate is defined.
+on fail.
 
-% Chainlog built-in predicates (ISO Prolog built-ins)
+
+% Chainlog built-in predicates (inherited from ISO Prolog built-ins).
 chainlog_builtin(_ =:= _).
 chainlog_builtin(_ =\= _).
 chainlog_builtin(_ < _).

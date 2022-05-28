@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	chainlog "github.com/arran8901/chainlog-lang"
 )
@@ -28,6 +29,7 @@ func main() {
 
 	fmt.Println("Go Chainlog Interactive Interpreter")
 
+	// Load file if filename given. Create new interpreter.
 	if filename := flag.Arg(0); filename != "" {
 		fileBytes, err := ioutil.ReadFile(filename)
 		if err != nil {
@@ -40,23 +42,43 @@ func main() {
 		i = chainlog.NewInterpreter()
 	}
 
+	// Initialise message context
+	msgCtx := &chainlog.MessageContext{
+		Sender:  "0x0",
+		Value:   0,
+		Time:    uint(time.Now().Unix()),
+		Balance: 0,
+	}
+
 	var scanner *bufio.Scanner = bufio.NewScanner(os.Stdin)
 	for fmt.Print("?- "); scanner.Scan(); fmt.Print("?- ") {
-		var queryStr string = scanner.Text()
+		var inputStr string = scanner.Text()
 
-		// Split into queries
-		var queries []string = queryDelimiter.Split(queryStr, -1)
-		queries = queries[:len(queries)-1]
+		// Split user input into submissions (queries, messages).
+		var submissions []string = queryDelimiter.Split(inputStr, -1)
+		if submissions[len(submissions)-1] == "" {
+			submissions = submissions[:len(submissions)-1]
+		}
 
-		for _, query := range queries {
-			queryGoal(query, i, scanner)
+		for _, submission := range submissions {
+			switch {
+			case strings.HasPrefix(submission, ":"):
+				// Context directive
+				// TODO
+			case strings.HasPrefix(submission, "$"):
+				// Message
+				sendMessage(submission[1:], msgCtx, i)
+			default:
+				// Query
+				queryGoal(submission, i, scanner)
+			}
 		}
 	}
 }
 
 // queryGoal processes a query for a given single goal term.
 func queryGoal(goal string, i *chainlog.Interpreter, scanner *bufio.Scanner) {
-	itr, err := i.Query(fmt.Sprintf(` chainlog_query(%s).`, goal))
+	itr, err := i.Query(goal)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
@@ -67,6 +89,7 @@ func queryGoal(goal string, i *chainlog.Interpreter, scanner *bufio.Scanner) {
 		derivation, err := itr.Next()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			return
 		}
 
 		if !derivation.Successful {
@@ -91,5 +114,18 @@ func queryGoal(goal string, i *chainlog.Interpreter, scanner *bufio.Scanner) {
 		if !(scanner.Scan() && strings.HasPrefix(scanner.Text(), ";")) {
 			return
 		}
+	}
+}
+
+// sendMessage processes a single given message.
+func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.Interpreter) {
+	actions, err := i.Message(message, msgCtx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+
+	for _, action := range actions {
+		fmt.Println(action)
 	}
 }

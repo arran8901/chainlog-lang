@@ -87,12 +87,55 @@ func (d *QueryIterator) Next() (*Derivation, error) {
 	return &Derivation{Successful: true, Unifications: unifications}, nil
 }
 
-func (i *Interpreter) Query(query string, args ...interface{}) (*QueryIterator, error) {
-	sols, err := i.prologInterpreter.Query(query, args...)
+// Address is the address of an account.
+type Address string
+
+// MessageContext contains contextual information about a Chainlog message.
+type MessageContext struct {
+	Sender Address
+	Value  uint
+	Time   uint
+
+	Balance uint
+}
+
+// asChainlogTerm formats the message context into a Chainlog term and returns the
+// string representation.
+func (msgCtx *MessageContext) asChainlogTerm() string {
+	return fmt.Sprintf("msg_ctx('%s', %d, %d, %d)", string(msgCtx.Sender), msgCtx.Value, msgCtx.Time, msgCtx.Balance)
+}
+
+// Query submits a Chainlog query for a given single goal term. Returns a
+// QueryIterator of derivations.
+func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
+	// TODO: injection vulnerability?
+	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query((%s)).`, goal))
 	if err != nil {
 		return nil, err
 	}
 	return &QueryIterator{sols}, nil
+}
+
+// Message sends a Chainlog message with the given message term and context. Returns
+// the sequence of actions to be performed.
+func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]string, error) {
+	var msgCtxTerm string = msgCtx.asChainlogTerm()
+
+	sol := i.prologInterpreter.QuerySolution(fmt.Sprintf(`chainlog_msg((%s), (%s), ActionsList).`, msgTerm, msgCtxTerm))
+	if err := sol.Err(); err != nil {
+		return nil, err
+	}
+
+	var s struct {
+		ActionsList []engine.Term
+	}
+	sol.Scan(&s)
+
+	var actions []string
+	for _, term := range s.ActionsList {
+		actions = append(actions, termToString(term))
+	}
+	return actions, nil
 }
 
 //go:embed chainlog-lang/interpreter.pl
