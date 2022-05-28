@@ -1,0 +1,5 @@
+on multiAssert:
+  do assert(a(1)),
+     assert(b(2)),
+     assert(c(3)).
+
