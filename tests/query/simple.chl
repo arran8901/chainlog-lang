@@ -12,3 +12,13 @@ age(myrtle, 69).
 
 old(X) :- age(X, Age), Age >= 40.
 
+
+test :-
+  expect_query_true(age(john, 33)),
+  expect_query_true(old(peter)),
+
+  expect_query_false(age(alice, 3)),
+  expect_query_false(old(felix)),
+
+  expect_query(age(X, 41), X = martin).
+

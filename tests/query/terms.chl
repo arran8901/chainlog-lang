@@ -17,3 +17,8 @@ term(nested_compound(nested_compound(compound(Y, -90)))).
 term([1, 2, 3]).
 term([item1, item2 | Tail]).
 term([a, b | [c, d | [e]]]).
+
+
+test :-
+  expect_query_true(term([a, b, c | [d, e]])).
+

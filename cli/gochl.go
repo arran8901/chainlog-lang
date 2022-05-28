@@ -29,17 +29,18 @@ func main() {
 
 	fmt.Println("Go Chainlog Interactive Interpreter")
 
-	// Load file if filename given. Create new interpreter.
-	if filename := flag.Arg(0); filename != "" {
+	// Create new interpreter.
+	i = chainlog.NewInterpreter()
+
+	// Load files if filenames given.
+	for _, filename := range flag.Args() {
 		fileBytes, err := ioutil.ReadFile(filename)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(os.Stderr, "No such file: %s", filename)
 		}
 		fileSource := string(fileBytes)
-		i = chainlog.NewInterpreterFromProgram(fileSource)
+		i.Consult(fileSource)
 		fmt.Printf("Loaded file: %s\n", filename)
-	} else {
-		i = chainlog.NewInterpreter()
 	}
 
 	// Initialise message context

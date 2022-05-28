@@ -3,6 +3,7 @@ package chainloglang
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -17,30 +18,18 @@ type Interpreter struct {
 
 // NewInterpreter creates a new Chainlog interpreter
 func NewInterpreter() *Interpreter {
-	return &Interpreter{baseInterpreter()}
+	i, _ := baseInterpreterFromSources(chainlogLib)
+	return &Interpreter{i}
 }
 
-// NewInterpreterFromProgram creates a new Chainlog interpreter and loads the
-// supplied program source code.
-func NewInterpreterFromProgram(program string) *Interpreter {
-	var userDefinedPredicates []predicateIndicator = getUserDefinedPredicates(program)
-	p := baseInterpreterWithLibrary()
-
-	// Declare all user defined predicates dynamic in order to make them public.
-	// This is needed for clause/2 to have permission to access those predicates.
-	for _, predicateIndicator := range userDefinedPredicates {
-		if err := p.Exec(fmt.Sprintf(`:- dynamic(%s).`, predicateIndicator)); err != nil {
-			fmt.Println(predicateIndicator)
-			panic(err)
-		}
+// NewInterpreterWithBuiltins creates a new Chainlog interpreter with the given
+// Prolog sources loaded as built-in.
+func NewInterpreterWithBuiltins(builtinSources ...string) (*Interpreter, error) {
+	i, err := baseInterpreterFromSources(append([]string{chainlogLib}, builtinSources...)...)
+	if err != nil {
+		return nil, err
 	}
-
-	// Now load the program itself.
-	if err := p.Exec(program); err != nil {
-		panic(err)
-	}
-
-	return &Interpreter{p}
+	return &Interpreter{i}, nil
 }
 
 // Derivation is the result of a single derivation of a Chainlog query. It
@@ -105,6 +94,29 @@ func (msgCtx *MessageContext) asChainlogTerm() string {
 	return fmt.Sprintf("msg_ctx('%s', %d, %d, %d)", string(msgCtx.Sender), msgCtx.Value, msgCtx.Time, msgCtx.Balance)
 }
 
+// Consult loads the supplied program source code.
+func (i *Interpreter) Consult(program string) error {
+	userDefinedPredicates, err := getUserDefinedPredicates(program)
+	if err != nil {
+		return err
+	}
+
+	// Declare all user defined predicates dynamic in order to make them public.
+	// This is needed for clause/2 to have permission to access those predicates.
+	for _, predicateIndicator := range userDefinedPredicates {
+		if err := i.prologInterpreter.Exec(fmt.Sprintf(`:- dynamic(%s).`, predicateIndicator)); err != nil {
+			panic(err)
+		}
+	}
+
+	// Now load the program itself.
+	if err := i.prologInterpreter.Exec(program); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Query submits a Chainlog query for a given single goal term. Returns a
 // QueryIterator of derivations.
 func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
@@ -161,17 +173,20 @@ func baseInterpreter() *prolog.Interpreter {
 	if err := p.Exec(chainlogInterpreter); err != nil {
 		panic(err)
 	}
+	p.SetUserOutput(os.Stdout)
 	return p
 }
 
-// baseInterpreterWithLibrary creates and returns a base Prolog interpreter with
-// the Chainlog library loaded.
-func baseInterpreterWithLibrary() *prolog.Interpreter {
+// baseInterpreterFromSources creates and returns a base Prolog interpreter with
+// the given sources loaded.
+func baseInterpreterFromSources(sources ...string) (*prolog.Interpreter, error) {
 	p := baseInterpreter()
-	if err := p.Exec(chainlogLib); err != nil {
-		panic(err)
+	for _, source := range sources {
+		if err := p.Exec(source); err != nil {
+			return nil, err
+		}
 	}
-	return p
+	return p, nil
 }
 
 // termToString converts a prolog.engine.Term to a user-friendly display string.
@@ -220,12 +235,12 @@ func termToString(term engine.Term) string {
 }
 
 // getUserDefinedPredicates returns the predicates defined in the given program.
-func getUserDefinedPredicates(program string) (pis []predicateIndicator) {
+func getUserDefinedPredicates(program string) ([]predicateIndicator, error) {
 	p := baseInterpreter()
 
 	// Load program.
 	if err := p.Exec(program); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	// Get user defined predicates using current_predicate/1. Omit reserved
@@ -236,6 +251,7 @@ func getUserDefinedPredicates(program string) (pis []predicateIndicator) {
 	}
 	defer sols.Close()
 
+	var pis []predicateIndicator
 	for sols.Next() {
 		var s struct {
 			PI engine.Term
@@ -250,5 +266,5 @@ func getUserDefinedPredicates(program string) (pis []predicateIndicator) {
 		pis = append(pis, predicateIndicator{predicate, arity})
 	}
 
-	return
+	return pis, nil
 }
