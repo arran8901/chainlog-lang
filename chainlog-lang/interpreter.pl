@@ -62,6 +62,7 @@ chainlog_builtin(setof(_, _, _)).
 
 
 % Query interpreter.
+chainlog_query(true) :- !.
 chainlog_query(Goal) :-
   chainlog_builtin(Goal), !,
   call(Goal).
@@ -80,12 +81,12 @@ chainlog_query(Goal) :-
 chainlog_msg(MsgTerm, MsgInfo, ActionsList) :-
   % Attempt to unify MsgTerm with a message handler, then call the handler.
   (on MsgTerm: Body),
-  call_msg_handler(Body, MsgInfo, ActionsList).
+  chainlog_call_msg_handler(Body, MsgInfo, ActionsList).
 chainlog_msg(MsgTerm, _, _) :-
   % If no message handler
   throw(error(match_error(msg_handler, MsgTerm), 'No matching message handler')).
 
-% call_msg_handler(+Body, +MsgInfo, -ActionsList)
+% chainlog_call_msg_handler(+Body, +MsgInfo, -ActionsList)
 %
 % Succeeds if all `require` and `if` conditions succeed and unifies ActionsList with the list
 % of actions to be executed.
@@ -95,11 +96,11 @@ chainlog_msg(MsgTerm, _, _) :-
 % Body: a single do clause `do Actions` or composite (BodyClause ; BodyClauses).
 % MsgInfo: TODO.
 % ActionsList: a list of actions [Action1, ..., ActionN].
-call_msg_handler((do Actions), MsgInfo, ActionsList) :-
-  !, collect_actions(Actions, MsgInfo, ActionsList).
-%call_msg_handler((require Literals ; Rest), Msg) :- fail.
+chainlog_call_msg_handler((do Actions), MsgInfo, ActionsList) :-
+  !, chainlog_collect_actions(Actions, MsgInfo, ActionsList).
+%chainlog_call_msg_handler((require Literals ; Rest), Msg) :- fail.
 
-% collect_actions(+Actions, +MsgInfo, -ActionsList)
+% chainlog_collect_actions(+Actions, +MsgInfo, -ActionsList)
 %
 % Converts ','-separated Actions to a list.
 % Always succeeds. Unifies ActionsList with the list of collected actions.
@@ -107,9 +108,20 @@ call_msg_handler((do Actions), MsgInfo, ActionsList) :-
 % Action: a single action or composite (Action , Actions).
 % MsgInfo: TODO.
 % ActionsList: a list of actions [Action1, ..., ActionN].
-collect_actions((Action, Actions), MsgInfo, [Action | ActionsList]) :-
-  !, collect_actions(Actions, MsgInfo, ActionsList).
-collect_actions(Action, _, [Action]).
+chainlog_collect_actions((Action, Actions), MsgInfo, [Action | ActionsList]) :-
+  !, chainlog_collect_actions(Actions, MsgInfo, ActionsList).
+chainlog_collect_actions(Action, _, [Action]).
 
+
+% chainlog_reserved_name(+Name)
+%
+% Succeeds if Name is a Chainlog reserved predicate name.
+%
+% Name: an atom.
+chainlog_reserved_name(or).
+chainlog_reserved_name(not).
+chainlog_reserved_name(on).
+% Names beginning with 'chainlog' are reserved.
+chainlog_reserved_name(Name) :- atom_concat(chainlog, _, Name).
 
 
