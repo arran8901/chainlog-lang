@@ -1,0 +1,14 @@
+age(john, 33).
+age(peter, 43).
+age(alice, 13).
+age(felix, 5).
+age(joan, 90).
+age(X, Y) :- X = test1, Y = 100.
+age(frank, 55).
+age(martin, 41).
+age(alex, 24).
+age(X, Y) :- X = test2, Y = 100.
+age(myrtle, 69).
+
+old(X) :- age(X, Age), Age >= 40.
+

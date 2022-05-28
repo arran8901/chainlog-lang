@@ -1,0 +1,19 @@
+term(atom).
+
+term(54).
+term(-14).
+
+term(3.14).
+term(-1.2).
+
+term(Variable).
+
+term(compound(atom, 11)).
+term(compound(1.4, Variable, -5, atom)).
+
+term(nested_compound(atom, compound(5, X))).
+term(nested_compound(nested_compound(compound(Y, -90)))).
+
+term([1, 2, 3]).
+term([item1, item2 | Tail]).
+term([a, b | [c, d | [e]]]).

@@ -1,0 +1,4 @@
+on singleAssertExample: do assert(hello(abc)).
+
+on singleRetractExample: do retract(abc).
+
