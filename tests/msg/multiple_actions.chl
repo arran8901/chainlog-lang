@@ -3,3 +3,7 @@ on multiAssert:
      assert(b(2)),
      assert(c(3)).
 
+
+test :-
+  expect_msg(multiAssert, _, [assert(a(1)), assert(b(2)), assert(c(3))]).
+

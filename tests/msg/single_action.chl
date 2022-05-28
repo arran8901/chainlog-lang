@@ -11,5 +11,5 @@ test :-
   expect_msg_fail(singleAssertExample(this_shouldnt_be_here), _,
                   error(match_error(msg_handler, _), _)),
   expect_msg_fail(nonExistentHandler, _,
-                  error(match_error(msg_handler, _), _)),
+                  error(match_error(msg_handler, _), _)).
 

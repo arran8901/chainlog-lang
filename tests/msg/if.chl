@@ -8,3 +8,14 @@ on handlerWithIf(X):
   if not even(X);
   do assert(bad(X)).
 
+
+test_even :-
+  expect_query_true(even(4)),
+  expect_query_false(even(5)).
+
+test_handler_if :-
+  expect_msg(handlerWithIf(4), _, [assert(good(4))]),
+  expect_msg(handlerWithIf(5), _, [assert(bad(5))]),
+
+  expect_msg_fail(handlerWithIf, _, error(match_error(msg_handler, _), _)).
+
