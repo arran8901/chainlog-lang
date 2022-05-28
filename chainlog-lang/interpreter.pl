@@ -102,6 +102,12 @@ chainlog_msg(MsgTerm, _, _) :-
 chainlog_call_msg_handler((do Actions), MsgInfo, ActionsList) :-
   !, chainlog_collect_actions(Actions, MsgInfo, ActionsList).
 %chainlog_call_msg_handler((require Literals ; Rest), Msg) :- fail.
+chainlog_call_msg_handler((if (Cond, Conds) ; Rest), MsgInfo, ActionsList) :-
+  !, chainlog_query(Cond),
+  chainlog_call_msg_handler((if Conds ; Rest), MsgInfo, ActionsList).
+chainlog_call_msg_handler((if Cond ; Rest), MsgInfo, ActionsList) :-
+  !, chainlog_query(Cond),
+  chainlog_call_msg_handler(Rest, MsgInfo, ActionsList).
 
 % chainlog_collect_actions(+Actions, +MsgInfo, -ActionsList)
 %

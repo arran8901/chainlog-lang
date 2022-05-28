@@ -1,0 +1,10 @@
+even(X) :- integer(X), M is X mod 2, M =:= 0.
+
+on handlerWithIf(X):
+  if even(X);
+  do assert(good(X)).
+
+on handlerWithIf(X):
+  if not even(X);
+  do assert(bad(X)).
+
