@@ -1,0 +1,32 @@
+on multiIfCondition(X, Y):
+  if integer(X), integer(Y), X > Y;
+  do assert(gt(X, Y)).
+
+on multiIfKeyword(X, Y):
+  if integer(X);
+  if integer(Y);
+  if X > Y;
+  do assert(gt(X, Y)).
+
+on multiIfCombination(X, Y):
+  if integer(X), integer(Y);
+  if X > Y;
+  do assert(gt(X, Y)).
+
+
+test :-
+  expect_msg(multiIfCondition(5, 4), _, [assert(gt(5, 4))]),
+  expect_msg_fail(multiIfCondition(atom, 4), _, error(match_error(msg_handler, _), _)),
+  expect_msg_fail(multiIfCondition(5, atom), _, error(match_error(msg_handler, _), _)),
+  expect_msg_fail(multiIfCondition(3, 4), _, error(match_error(msg_handler, _), _)),
+
+  expect_msg(multiIfKeyword(5, 4), _, [assert(gt(5, 4))]),
+  expect_msg_fail(multiIfKeyword(atom, 4), _, error(match_error(msg_handler, _), _)),
+  expect_msg_fail(multiIfKeyword(5, atom), _, error(match_error(msg_handler, _), _)),
+  expect_msg_fail(multiIfKeyword(3, 4), _, error(match_error(msg_handler, _), _)),
+
+  expect_msg(multiIfCombination(5, 4), _, [assert(gt(5, 4))]),
+  expect_msg_fail(multiIfCombination(atom, 4), _, error(match_error(msg_handler, _), _)),
+  expect_msg_fail(multiIfCombination(5, atom), _, error(match_error(msg_handler, _), _)),
+  expect_msg_fail(multiIfCombination(3, 4), _, error(match_error(msg_handler, _), _)).
+
