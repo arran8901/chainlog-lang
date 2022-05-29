@@ -31,7 +31,7 @@ expect_msg(MsgTerm, MsgCtx, ExpectedActionsList) :-
   catch(chainlog_msg(MsgTerm, MsgCtx, GotActionsList),
         error(match_error(msg_handler, _), _),
         throw(error(test_error(expect_msg), no_matching_handler(MsgTerm, MsgCtx)))), !,
-  (  ExpectedActionsList = GotActionsList
+  (  subsumes_term(ExpectedActionsList, GotActionsList)
   -> true
   ;  throw(error(test_error(expect_msg),
            actions_mismatch(MsgTerm, MsgCtx, ExpectedActionsList, GotActionsList)))).
@@ -43,7 +43,7 @@ expect_msg_fail(MsgTerm, MsgCtx, ExpectedError) :-
   % GotError remains a variable if message succeeded and no error was caught.
   (  var(GotError)
   -> throw(error(test_error(expect_msg_fail), msg_success(MsgTerm, MsgCtx)))
-  ;  ExpectedError \= GotError
+  ;  \+ subsumes_term(ExpectedError, GotError)
   -> throw(error(test_error(expect_msg_fail),
            error_mismatch(MsgTerm, MsgCtx, ExpectedError, GotError)))
   ;  true).

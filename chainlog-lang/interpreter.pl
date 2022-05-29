@@ -86,13 +86,13 @@ chainlog_msg(MsgTerm, MsgCtx, ActionsList) :-
   (on MsgTerm: Body),
   catch(chainlog_with_msg_ctx(chainlog_call_msg_handler(Body, ActionsList), MsgCtx), Error,
         % For require errors, add MsgTerm and MsgCtx to context and rethrow.
-        (  Error = error(require_error, Cond)
-        -> throw(error(require_error, context(MsgTerm, MsgCtx, Cond)))
+        (  Error = error(require_error, Cond, ErrorCond)
+        -> throw(error(require_error, context(MsgTerm, MsgCtx, Cond, ErrorCond)))
         % For all other errors, rethrow as is.
         ;  throw(Error))
   ).
 chainlog_msg(MsgTerm, _, _) :-
-  % If no message handler
+  % If no matching message handler
   throw(error(match_error(msg_handler), MsgTerm)).
 
 % chainlog_with_msg_ctx(:Goal, MsgCtx)
@@ -150,11 +150,13 @@ chainlog_call_msg_handler((if Cond ; Rest), ActionsList) :-
   !, chainlog_query(Cond),
   chainlog_call_msg_handler(Rest, ActionsList).
 chainlog_call_msg_handler((require Cond ; Rest), ActionsList) :-
-  !,
-  (  chainlog_query(Cond)
+  % Use a helper to recurse over Cond instead of just querying it, so that variable substitutions
+  % to conditions preceding the failing condition can be reported in the thrown require_error.
+  % As a bonus, this also identifies the failing condition in ErrorCond.
+  chainlog_check_require(Cond, ErrorCond),
+  (  ErrorCond = no_error
   -> chainlog_call_msg_handler(Rest, ActionsList)
-  ;  throw(error(require_error, Cond))).
-
+  ;  throw(error(require_error, Cond, ErrorCond))).
 
 % chainlog_collect_actions(+Actions, -ActionsList)
 %
@@ -167,6 +169,22 @@ chainlog_collect_actions((Action, Actions), [Action | ActionsList]) :-
   !, chainlog_collect_actions(Actions, ActionsList).
 chainlog_collect_actions(Action, [Action]).
 
+% chainlog_check_require(+Cond, -ErrorCond)
+%
+% Checks conditions for the first failure. If there is a failing condition, it is unified with
+% ErrorCond. Otherwise, if all conditions pass, ErrorCond is unified with the atom `no_error`.
+%
+% Cond: a single Chainlog goal or a composite (Cond, Conds)
+% ErrorCond: a single Chainlog goal or the atom `no_error`.
+chainlog_check_require((Cond, Conds), ErrorCond) :-
+  !,
+  (  chainlog_query(Cond)
+  -> chainlog_check_require(Conds, ErrorCond)
+  ;  ErrorCond = Cond).
+chainlog_check_require(Cond, ErrorCond) :-
+  (  chainlog_query(Cond)
+  -> ErrorCond = no_error
+  ;  ErrorCond = Cond).
 
 % chainlog_reserved_name(+Name)
 %
@@ -178,5 +196,4 @@ chainlog_reserved_name(not).
 chainlog_reserved_name(on).
 % Names beginning with 'chainlog' are reserved.
 chainlog_reserved_name(Name) :- atom_concat(chainlog, _, Name).
-
 

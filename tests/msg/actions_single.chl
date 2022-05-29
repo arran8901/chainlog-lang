@@ -4,7 +4,7 @@ on singleRetractExample: do retract(abc).
 
 
 test :-
-  mock_msg_ctx(MsgCtx).
+  mock_msg_ctx(MsgCtx),
 
   expect_msg(singleAssertExample, MsgCtx, [assert(hello(abc))]),
 

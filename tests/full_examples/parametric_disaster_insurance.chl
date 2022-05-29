@@ -9,11 +9,11 @@ payout_limit(100).
 cyclone_category(violent_typhoon, T) :- wind_speed(WindSpeedKnots, T),
                                         WindSpeedKnots >= 105.
 cyclone_category(v_strong_typhoon, T) :- wind_speed(WindSpeedKnots, T),
-	   									                   WindSpeedKnots >= 85,
-	   									                   WindSpeedKnots < 105.
+                                         WindSpeedKnots >= 85,
+                                         WindSpeedKnots < 105.
 cyclone_category(typhoon, T) :- wind_speed(WindSpeedKnots, T),
-	   							              WindSpeedKnots >= 64,
-	   							              WindSpeedKnots < 85.
+                                WindSpeedKnots >= 64,
+                                WindSpeedKnots < 85.
 
 payout_percentage(100) :- cyclone_category(violent_typhoon, _T).
 payout_percentage(80) :- cyclone_category(v_strong_typhoon, _T).
@@ -47,16 +47,16 @@ payout(Value) :- payout_limit(Limit),
 
 % Message handlers
 on disasterData(Data):
-	require sender(Sender), data_source(Sender);
+  require sender(Sender), data_source(Sender);
   do      assert(Data).
 
 on claimPayout:
-	require sender(Sender), policyholder(Sender);
+  require sender(Sender), policyholder(Sender);
   require not claimed;
   require time(T), policy_expiration(ExpirationDate), T < ExpirationDate;
   if      payout(Value);
   do      assert(claimed),
-	        transfer(Sender, Value).
+          transfer(Sender, Value).
 
 on terminate:
   require time(T), policy_expiration(ExpirationDate), T > ExpirationDate;

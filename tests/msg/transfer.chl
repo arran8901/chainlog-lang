@@ -1,0 +1,15 @@
+on transferSender(Amount):
+  require balance(Balance), Amount =< Balance;
+  if      sender(Sender);
+  do      transfer(Sender, Amount).
+
+
+test :-
+  MsgCtx = msg_ctx('0xA1C1', 0, 0, 100),
+
+  expect_msg(transferSender(20), MsgCtx, [transfer('0xA1C1', 20)]),
+  expect_msg(transferSender(40), MsgCtx, [transfer('0xA1C1', 40)]),
+  expect_msg_fail(transferSender(200), MsgCtx,
+      error(require_error, context(transferSender(200), MsgCtx,
+                                   (balance(100), 200 =< 100), 200 =< 100))).
+

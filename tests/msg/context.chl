@@ -56,7 +56,7 @@ test_time :-
   expect_msg(ctxTime, MsgCtx2, [assert(at(1577836800))]),
 
   expect_msg_fail(ctxTimeRequire, MsgCtx1, error(require_error, context(ctxTimeRequire, MsgCtx1,
-      (time(946684800), 946684800 > 1000000000)))),
+      (time(946684800), 946684800 > 1000000000), 946684800 > 1000000000))),
   expect_msg(ctxTimeRequire, MsgCtx2, [retract(atom)]).
 
 test_balance :-

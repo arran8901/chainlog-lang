@@ -4,10 +4,10 @@ on requireSingle(X):
 
 
 test :-
-  mock_msg_ctx(MsgCtx).
+  mock_msg_ctx(MsgCtx),
 
   expect_msg(requireSingle(a), MsgCtx, [assert(non_atom(a))]),
 
   expect_msg_fail(requireSingle(3), MsgCtx,
-                  error(require_error, context(requireSingle(3), _, atom(3)))).
+                  error(require_error, context(requireSingle(3), _, atom(3), atom(3)))).
 

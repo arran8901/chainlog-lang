@@ -70,7 +70,7 @@ func runTestsForFile(t *testing.T, testFilepath string) {
 	}
 
 	if err == nil {
-		t.Logf("All tests passed for file: %s", testFilepath)
+		t.Logf("All tests passed for file: %s %v", testFilepath, testPredicates)
 	}
 }
 
