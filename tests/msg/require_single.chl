@@ -1,0 +1,13 @@
+on requireSingle(X):
+  require atom(X);
+  do      assert(non_atom(X)).
+
+
+test :-
+  mock_msg_ctx(MsgCtx).
+
+  expect_msg(requireSingle(a), MsgCtx, [assert(non_atom(a))]),
+
+  expect_msg_fail(requireSingle(3), MsgCtx,
+                  error(require_error, context(requireSingle(3), _, atom(3)))).
+

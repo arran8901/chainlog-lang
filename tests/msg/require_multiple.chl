@@ -1,0 +1,76 @@
+student(john).
+student(adrian).
+student(matthew).
+student(kylie).
+
+friends(john, matthew).
+friends(matthew, kylie).
+
+on requireMultiCond(Person):
+  require atom(Person),
+          student(Person),
+          (friends(Person, _) or friends(_, Person));
+  do      assert(friendly(Person)).
+
+on requireMultiKeyword(Person):
+  require atom(Person);
+  require student(Person);
+  require friends(Person, _) or friends(_, Person);
+  do      assert(friendly(Person)).
+
+on requireMultiCombination(Person):
+  require atom(Person), student(Person);
+  require friends(Person, _) or friends(_, Person);
+  do      assert(friendly(Person)).
+
+
+test_multi_cond :-
+  mock_msg_ctx(MsgCtx),
+
+  expect_msg(requireMultiCond(john), MsgCtx, [assert(friendly(john))]),
+  expect_msg_fail(requireMultiCond(adrian), MsgCtx,
+                  error(require_error, context(requireMultiCond(adrian), _,
+                                               (atom(adrian),
+                                                student(adrian),
+                                                (friends(adrian, _) or friends(_, adrian)))))),
+  expect_msg(requireMultiCond(matthew), MsgCtx, [assert(friendly(matthew))]),
+  expect_msg(requireMultiCond(kylie), MsgCtx, [assert(friendly(kylie))]),
+  expect_msg_fail(requireMultiCond(nick), MsgCtx,
+                  error(require_error, context(requireMultiCond(nick), _,
+                                               (atom(nick),
+                                                student(nick),
+                                                (friends(nick, _) or friends(_, nick)))))),
+  expect_msg_fail(requireMultiCond(-1), MsgCtx,
+                  error(require_error, context(requireMultiCond(-1), _,
+                                               (atom(-1),
+                                                student(-1),
+                                                (friends(-1, _) or friends(_, -1)))))).
+
+test_multi_keyword :-
+  mock_msg_ctx(MsgCtx),
+
+  expect_msg(requireMultiKeyword(john), MsgCtx, [assert(friendly(john))]),
+  expect_msg_fail(requireMultiKeyword(adrian), MsgCtx,
+                  error(require_error, context(requireMultiKeyword(adrian), _,
+                                               (friends(adrian, _) or friends(_, adrian))))),
+  expect_msg(requireMultiKeyword(matthew), MsgCtx, [assert(friendly(matthew))]),
+  expect_msg(requireMultiKeyword(kylie), MsgCtx, [assert(friendly(kylie))]),
+  expect_msg_fail(requireMultiKeyword(nick), MsgCtx,
+                  error(require_error, context(requireMultiKeyword(nick), _, student(nick)))),
+  expect_msg_fail(requireMultiKeyword(-1), MsgCtx,
+                  error(require_error, context(requireMultiKeyword(-1), _, atom(-1)))).
+
+test_multi_combination :-
+  mock_msg_ctx(MsgCtx),
+
+  expect_msg(requireMultiCombination(john), MsgCtx, [assert(friendly(john))]),
+  expect_msg_fail(requireMultiCombination(adrian), MsgCtx,
+                  error(require_error, context(requireMultiCombination(adrian), _,
+                                               (friends(adrian, _) or friends(_, adrian))))),
+  expect_msg(requireMultiCombination(matthew), MsgCtx, [assert(friendly(matthew))]),
+  expect_msg(requireMultiCombination(kylie), MsgCtx, [assert(friendly(kylie))]),
+  expect_msg_fail(requireMultiCombination(nick), MsgCtx,
+                  error(require_error, context(requireMultiCombination(nick), _, (atom(nick), student(nick))))),
+  expect_msg_fail(requireMultiCombination(-1), MsgCtx,
+                  error(require_error, context(requireMultiCombination(-1), _, (atom(-1), student(-1))))).
+

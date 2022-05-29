@@ -4,12 +4,14 @@ on singleRetractExample: do retract(abc).
 
 
 test :-
-  expect_msg(singleAssertExample, _, [assert(hello(abc))]),
+  mock_msg_ctx(MsgCtx).
 
-  expect_msg(singleRetractExample, _, [retract(abc)]),
+  expect_msg(singleAssertExample, MsgCtx, [assert(hello(abc))]),
 
-  expect_msg_fail(singleAssertExample(this_shouldnt_be_here), _,
-                  error(match_error(msg_handler, _), _)),
-  expect_msg_fail(nonExistentHandler, _,
-                  error(match_error(msg_handler, _), _)).
+  expect_msg(singleRetractExample, MsgCtx, [retract(abc)]),
+
+  expect_msg_fail(singleAssertExample(this_shouldnt_be_here), MsgCtx,
+                  error(match_error(msg_handler), _)),
+  expect_msg_fail(nonExistentHandler, MsgCtx,
+                  error(match_error(msg_handler), _)).
 

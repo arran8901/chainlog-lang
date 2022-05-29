@@ -14,8 +14,10 @@ test_even :-
   expect_query_false(even(5)).
 
 test_handler_if :-
-  expect_msg(handlerWithIf(4), _, [assert(good(4))]),
-  expect_msg(handlerWithIf(5), _, [assert(bad(5))]),
+  mock_msg_ctx(MsgCtx),
 
-  expect_msg_fail(handlerWithIf, _, error(match_error(msg_handler, _), _)).
+  expect_msg(handlerWithIf(4), MsgCtx, [assert(good(4))]),
+  expect_msg(handlerWithIf(5), MsgCtx, [assert(bad(5))]),
+
+  expect_msg_fail(handlerWithIf, MsgCtx, error(match_error(msg_handler), _)).
 

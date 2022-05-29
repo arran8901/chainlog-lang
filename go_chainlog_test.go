@@ -65,7 +65,7 @@ func runTestsForFile(t *testing.T, testFilepath string) {
 	for _, testPredicate := range testPredicates {
 		sol := i.prologInterpreter.QuerySolution(fmt.Sprintf(`%s.`, testPredicate))
 		if err = sol.Err(); err != nil {
-			t.Errorf("In %s: %s", testFilepath, err)
+			t.Errorf("In %s [%s]: %s", testFilepath, testPredicate, err)
 		}
 	}
 

@@ -1,6 +1,6 @@
 
 % Chainlog syntax.
-:- op(1100, xfy, or).
+:- op(1025, xfy, or).
 :- op(900, fy, not).
 
 X or _ :- X.
@@ -81,15 +81,51 @@ chainlog_query(Goal) :-
 
 
 % Message interpreter
-chainlog_msg(MsgTerm, MsgInfo, ActionsList) :-
+chainlog_msg(MsgTerm, MsgCtx, ActionsList) :-
   % Attempt to unify MsgTerm with a message handler, then call the handler.
   (on MsgTerm: Body),
-  chainlog_call_msg_handler(Body, MsgInfo, ActionsList).
+  chainlog_set_msg_ctx(MsgCtx),
+  catch(chainlog_call_msg_handler(Body, ActionsList), Error, (
+        chainlog_clear_msg_ctx,
+        % For require errors, add MsgTerm and MsgCtx to context and rethrow.
+        (  Error = error(require_error, Cond)
+        -> throw(error(require_error, context(MsgTerm, MsgCtx, Cond)))
+        % For all other errors, rethrow as is.
+        ;  throw(Error))
+  )),
+  chainlog_clear_msg_ctx.
 chainlog_msg(MsgTerm, _, _) :-
   % If no message handler
-  throw(error(match_error(msg_handler, MsgTerm), 'No matching message handler')).
+  throw(error(match_error(msg_handler), MsgTerm)).
 
-% chainlog_call_msg_handler(+Body, +MsgInfo, -ActionsList)
+% chainlog_set_msg_ctx(+MsgCtx)
+%
+% Sets the current message context to MsgCtx.
+% Throws `type_error` if the message context is malformed.
+%
+% MsgCtx: compound term msg_ctx(Sender: atom, Value: int, Time: int, Balance: int).
+chainlog_set_msg_ctx(msg_ctx(Sender, Value, Time, Balance)) :-
+  atom(Sender),
+  integer(Value),
+  integer(Time),
+  integer(Balance), !,
+  assertz(sender(Sender)),
+  assertz(value(Value)),
+  assertz(time(Time)),
+  assertz(balance(Balance)).
+chainlog_set_msg_ctx(MsgCtx) :-
+  throw(error(type_error(compound, MsgCtx), malformed_msg_ctx)).
+
+% chainlog_clear_msg_ctx
+%
+% Clears the current message context.
+chainlog_clear_msg_ctx :-
+  retractall(sender(_)),
+  retractall(value(_)),
+  retractall(time(_)),
+  retractall(balance(_)).
+
+% chainlog_call_msg_handler(+Body, -ActionsList)
 %
 % Succeeds if all `require` and `if` conditions succeed and unifies ActionsList with the list
 % of actions to be executed.
@@ -97,29 +133,29 @@ chainlog_msg(MsgTerm, _, _) :-
 % Throws `require_error` if any `require` condition fails.
 %
 % Body: a single do clause `do Actions` or composite (BodyClause ; BodyClauses).
-% MsgInfo: TODO.
 % ActionsList: a list of actions [Action1, ..., ActionN].
-chainlog_call_msg_handler((do Actions), MsgInfo, ActionsList) :-
-  !, chainlog_collect_actions(Actions, MsgInfo, ActionsList).
-%chainlog_call_msg_handler((require Literals ; Rest), Msg) :- fail.
-chainlog_call_msg_handler((if (Cond, Conds) ; Rest), MsgInfo, ActionsList) :-
+chainlog_call_msg_handler((do Actions), ActionsList) :-
+  !, chainlog_collect_actions(Actions, ActionsList).
+chainlog_call_msg_handler((if Cond ; Rest), ActionsList) :-
   !, chainlog_query(Cond),
-  chainlog_call_msg_handler((if Conds ; Rest), MsgInfo, ActionsList).
-chainlog_call_msg_handler((if Cond ; Rest), MsgInfo, ActionsList) :-
-  !, chainlog_query(Cond),
-  chainlog_call_msg_handler(Rest, MsgInfo, ActionsList).
+  chainlog_call_msg_handler(Rest, ActionsList).
+chainlog_call_msg_handler((require Cond ; Rest), ActionsList) :-
+  !,
+  (  chainlog_query(Cond)
+  -> chainlog_call_msg_handler(Rest, ActionsList)
+  ;  throw(error(require_error, Cond))).
 
-% chainlog_collect_actions(+Actions, +MsgInfo, -ActionsList)
+
+% chainlog_collect_actions(+Actions, -ActionsList)
 %
 % Converts ','-separated Actions to a list.
 % Always succeeds. Unifies ActionsList with the list of collected actions.
 %
 % Action: a single action or composite (Action , Actions).
-% MsgInfo: TODO.
 % ActionsList: a list of actions [Action1, ..., ActionN].
-chainlog_collect_actions((Action, Actions), MsgInfo, [Action | ActionsList]) :-
-  !, chainlog_collect_actions(Actions, MsgInfo, ActionsList).
-chainlog_collect_actions(Action, _, [Action]).
+chainlog_collect_actions((Action, Actions), [Action | ActionsList]) :-
+  !, chainlog_collect_actions(Actions, ActionsList).
+chainlog_collect_actions(Action, [Action]).
 
 
 % chainlog_reserved_name(+Name)

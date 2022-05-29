@@ -25,7 +25,7 @@ expect_query(Query, _) :-
   throw(error(test_error(expect_query), query_fail(Query))).
 
 
-% expect_msg(+MsgTerm, MsgCtx, ExpectedActionsList)
+% expect_msg(+MsgTerm, +MsgCtx, ?ExpectedActionsList)
 % Succeeds if submitting message MsgTerm with context MsgCtx produces actions ExpectedActionsList.
 expect_msg(MsgTerm, MsgCtx, ExpectedActionsList) :-
   catch(chainlog_msg(MsgTerm, MsgCtx, GotActionsList),
@@ -36,7 +36,7 @@ expect_msg(MsgTerm, MsgCtx, ExpectedActionsList) :-
   ;  throw(error(test_error(expect_msg),
            actions_mismatch(MsgTerm, MsgCtx, ExpectedActionsList, GotActionsList)))).
 
-% expect_msg_fail(+MsgTerm, MsgCtx, Error)
+% expect_msg_fail(+MsgTerm, +MsgCtx, ?Error)
 % Succeeds if submitting message MsgTerm with context MsgCtx fails with an error Error.
 expect_msg_fail(MsgTerm, MsgCtx, ExpectedError) :-
   catch(chainlog_msg(MsgTerm, MsgCtx, _), GotError, true), !,
@@ -47,4 +47,8 @@ expect_msg_fail(MsgTerm, MsgCtx, ExpectedError) :-
   -> throw(error(test_error(expect_msg_fail),
            error_mismatch(MsgTerm, MsgCtx, ExpectedError, GotError)))
   ;  true).
+
+% mock_msg_ctx(-MsgCtx)
+% Gives a mock message context ready for use in expect_msg predicates.
+mock_msg_ctx(msg_ctx('0xABCD', 30, 946684800, 120)).
 

@@ -5,5 +5,7 @@ on multiAssert:
 
 
 test :-
-  expect_msg(multiAssert, _, [assert(a(1)), assert(b(2)), assert(c(3))]).
+  mock_msg_ctx(MsgCtx),
+
+  expect_msg(multiAssert, MsgCtx, [assert(a(1)), assert(b(2)), assert(c(3))]).
 

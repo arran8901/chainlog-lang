@@ -1,0 +1,20 @@
+
+on ctxSender:
+  if sender(Sender);
+  do assert(got(Sender)).
+
+on ctxSenderIf:
+  if sender('0xABCD');
+  do assert(yes).
+
+
+test :-
+  MsgCtx1 = msg_ctx('0xABCD', 30, 946684800, 120),
+  MsgCtx2 = msg_ctx('0x1234', 15, 1577836800, 60),
+
+  expect_msg(ctxSender, MsgCtx1, [assert(got('0xABCD'))]),
+  expect_msg(ctxSender, MsgCtx2, [assert(got('0x1234'))]),
+  
+  expect_msg(ctxSenderIf, MsgCtx1, [assert(yes)]),
+  expect_msg_fail(ctxSenderIf, MsgCtx2, error(match_error(msg_handler), ctxSenderIf)).
+
