@@ -1,4 +1,3 @@
-
 on ctxSender:
   if sender(Sender);
   do assert(got(Sender)).
@@ -7,8 +6,32 @@ on ctxSenderIf:
   if sender('0xABCD');
   do assert(yes).
 
+on ctxValue:
+  if value(Value), Value > 20;
+  do assert(received(Value)).
 
-test :-
+on ctxTime:
+  if time(Time);
+  do assert(at(Time)).
+
+on ctxTimeRequire:
+  require time(T), T > 1000000000;
+  do      retract(atom).
+
+on ctxBalance:
+  if balance(Balance);
+  do retract(bal(Balance)).
+
+on ctxCombination:
+  if      sender(Sender), value(Value), time(Time), balance(Balance);
+  require Value > 10;
+  if      NewBalance is Balance + Value;
+  do      assert(msg(Sender, Value, Time)),
+          retract(bal(Balance)),
+          assert(bal(NewBalance)).
+
+
+test_sender :-
   MsgCtx1 = msg_ctx('0xABCD', 30, 946684800, 120),
   MsgCtx2 = msg_ctx('0x1234', 15, 1577836800, 60),
 
@@ -17,4 +40,40 @@ test :-
   
   expect_msg(ctxSenderIf, MsgCtx1, [assert(yes)]),
   expect_msg_fail(ctxSenderIf, MsgCtx2, error(match_error(msg_handler), ctxSenderIf)).
+
+test_value :-
+  MsgCtx1 = msg_ctx('0xABCD', 30, 946684800, 120),
+  MsgCtx2 = msg_ctx('0x1234', 15, 1577836800, 60),
+
+  expect_msg(ctxValue, MsgCtx1, [assert(received(Value))]),
+  expect_msg_fail(ctxValue, MsgCtx2, error(match_error(msg_handler), ctxValue)).
+
+test_time :-
+  MsgCtx1 = msg_ctx('0xABCD', 30, 946684800, 120),
+  MsgCtx2 = msg_ctx('0x1234', 15, 1577836800, 60),
+
+  expect_msg(ctxTime, MsgCtx1, [assert(at(946684800))]),
+  expect_msg(ctxTime, MsgCtx2, [assert(at(1577836800))]),
+
+  expect_msg_fail(ctxTimeRequire, MsgCtx1, error(require_error, context(ctxTimeRequire, MsgCtx1,
+      (time(946684800), 946684800 > 1000000000)))),
+  expect_msg(ctxTimeRequire, MsgCtx2, [retract(atom)]).
+
+test_balance :-
+  MsgCtx1 = msg_ctx('0xABCD', 30, 946684800, 120),
+  MsgCtx2 = msg_ctx('0x1234', 15, 1577836800, 60),
+
+  expect_msg(ctxBalance, MsgCtx1, [retract(bal(120))]),
+  expect_msg(ctxBalance, MsgCtx2, [retract(bal(60))]).
+
+test_combnination :-
+  MsgCtx1 = msg_ctx('0xABCD', 30, 946684800, 120),
+  MsgCtx2 = msg_ctx('0x1234', 15, 1577836800, 60),
+
+  expect_msg(ctxCombination, MsgCtx1, [assert(msg('0xABCD', 30, 946684800)),
+                                       retract(bal(120)),
+                                       assert(bal(150))]),
+  expect_msg(ctxCombination, MsgCtx2, [assert(msg('0x1234', 15, 1577836800)),
+                                       retract(bal(60)),
+                                       assert(bal(75))]).
 

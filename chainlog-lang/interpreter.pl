@@ -84,26 +84,36 @@ chainlog_query(Goal) :-
 chainlog_msg(MsgTerm, MsgCtx, ActionsList) :-
   % Attempt to unify MsgTerm with a message handler, then call the handler.
   (on MsgTerm: Body),
-  chainlog_set_msg_ctx(MsgCtx),
-  catch(chainlog_call_msg_handler(Body, ActionsList), Error, (
-        chainlog_clear_msg_ctx,
+  catch(chainlog_with_msg_ctx(chainlog_call_msg_handler(Body, ActionsList), MsgCtx), Error,
         % For require errors, add MsgTerm and MsgCtx to context and rethrow.
         (  Error = error(require_error, Cond)
         -> throw(error(require_error, context(MsgTerm, MsgCtx, Cond)))
         % For all other errors, rethrow as is.
         ;  throw(Error))
-  )),
-  chainlog_clear_msg_ctx.
+  ).
 chainlog_msg(MsgTerm, _, _) :-
   % If no message handler
   throw(error(match_error(msg_handler), MsgTerm)).
+
+% chainlog_with_msg_ctx(:Goal, MsgCtx)
+%
+% Sets up message context MsgCtx, calls Goal, clears MsgCtx.
+% The context is cleared whether Goal succeeds, fails or throws an exception.
+%
+% Goal: a callable term.
+% MsgCtx: a message context (see chainlog_set_msg_ctx).
+chainlog_with_msg_ctx(Goal, MsgCtx) :-
+  chainlog_set_msg_ctx(MsgCtx),
+  (  catch(Goal, Error, (chainlog_clear_msg_ctx, throw(Error)))
+  -> chainlog_clear_msg_ctx
+  ;  chainlog_clear_msg_ctx, fail).
 
 % chainlog_set_msg_ctx(+MsgCtx)
 %
 % Sets the current message context to MsgCtx.
 % Throws `type_error` if the message context is malformed.
 %
-% MsgCtx: compound term msg_ctx(Sender: atom, Value: int, Time: int, Balance: int).
+% MsgCtx: a compound term msg_ctx(Sender: atom, Value: int, Time: int, Balance: int).
 chainlog_set_msg_ctx(msg_ctx(Sender, Value, Time, Balance)) :-
   atom(Sender),
   integer(Value),

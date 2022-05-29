@@ -36,7 +36,8 @@ func main() {
 	for _, filename := range flag.Args() {
 		fileBytes, err := ioutil.ReadFile(filename)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "No such file: %s", filename)
+			fmt.Fprintf(os.Stderr, "No such file: %s\n", filename)
+			continue
 		}
 		fileSource := string(fileBytes)
 		i.Consult(fileSource)
