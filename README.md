@@ -7,12 +7,14 @@ The primary Chainlog language interpreter is written in Prolog, and resides in `
 
 A collection of standard library predicates are found in `chainlog-lang/lib.pl`. This includes predicates such as `find_all/3` which are not expressible in pure Chainlog.
 
-The interpreter can be executed using any Prolog implementation by consulting `chainlog-lang/interpreter.pl`, optionally consulting `chainlog-lang/lib.pl`, and optionally consulting a Chainlog file. For example, in SWI-Prolog:
+The interpreter can be executed using any Prolog implementation by consulting `chainlog-lang/interpreter.pl`, optionally consulting `chainlog-lang/lib.pl`, and optionally consulting a Chainlog file. From there, one can submit a Chainlog query by calling metapredicate `chainlog_query(:Goal)`, or simulate a message call to see resultant actions by calling `chainlog_msg(+MsgTerm, +MsgCtx, -ActionsList)`.
+For example, in SWI-Prolog:
 ```
 swipl chainlog-lang/interpreter.pl
 ?- ['chainlog-lang/lib.pl'].
+?- chainlog_query(3 < 4)
 ```
-Alternatively, use the provided interactive interpreter `gochl`.
+Alternatively, use the provided interactive interpreter `gochl`. See below for details.
 
 ## Interactive Interpreter
 An interactive Chainlog interpreter written in Go is provided in `cli/gochl.go`.
@@ -21,10 +23,10 @@ To start `gochl` from the project root, run:
 ```
 go run cli/gochl.go [<chl-file>...]
 ```
-It is recommended to use `rlwrap` to enable line editing and history.
+Recommended: use `rlwrap` to enable line editing and history.
 
 The interpreter allows you to submit queries such as `age(X, A), A >= 40` as an interactive Prolog interpreter would.
-It also allows you to simulate message calls by beginning input with `$` and entering a message term. For example, `$ withdraw(30)`.
+It also allows you to simulate message calls by beginning input with `$` and entering a message term. For example, `$ withdraw(30)`. The actions that would result from such a message will be displayed.
 
 ## Testing
 A testing framework and test suite are provided.
@@ -33,7 +35,7 @@ To run all tests, use:
 ```
 go test
 ```
-The `-v` flag is recommended.
+Recommended: use the `-v` flag.
 
 The testing framework consists of:
 * `tests/testlib.pl`: Test utility functions written in Prolog for asserting expectations about queries and messages (e.g. the query succeeds; the message produces certain expected actions).
