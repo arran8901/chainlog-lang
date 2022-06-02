@@ -1,0 +1,14 @@
+
+test_list_sum_max_min :-
+  expect_query(sum_list([], Sum1), Sum1 = 0),
+  expect_query(sum_list([1, 2, 3, 4], Sum2), Sum2 = 10),
+  expect_query(sum_list([9, -2, 17, 3], Sum3), Sum3 = 27),
+
+  expect_query_false(max_list([], Max1)),
+  expect_query(max_list([1, 4, 2, -7, 6, 4, 3], Max2), Max2 = 6),
+  expect_query(max_list([13, 475, 11, 198, 50, 22], Max3), Max3 = 475),
+
+  expect_query_false(min_list([], Min1)),
+  expect_query(min_list([13, 475, 11, 198, 50, 22], Min2), Min2 = 11),
+  expect_query(min_list([-1, 4, -102, -45, -31, 87], Min3), Min3 = -102).
+

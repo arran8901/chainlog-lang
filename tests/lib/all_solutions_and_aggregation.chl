@@ -1,0 +1,26 @@
+person(alice).
+person(bob).
+person(cathy).
+person(dylan).
+person(eve).
+
+age(alice, 30).
+age(bob, 60).
+age(cathy, 71).
+age(dylan, 23).
+age(eve, 91).
+
+
+test_find_all :-
+  expect_query(find_all(Person, (person(Person), age(Person, Age), Age > 40), L),
+               L = [bob, cathy, eve]).
+
+test_sum_all :-
+  expect_query(sum_all(Age, (person(Person), age(Person, Age)), Sum), Sum = 275).
+
+test_max_all :-
+  expect_query(max_all(Age, (person(Person), age(Person, Age)), Max), Max = 91).
+
+test_min_all :-
+  expect_query(min_all(Age, (person(Person), age(Person, Age)), Min), Min = 23).
+

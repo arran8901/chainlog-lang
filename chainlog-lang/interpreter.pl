@@ -63,11 +63,17 @@ chainlog_builtin(bagof(_, _, _)).
 chainlog_builtin(findall(_, _, _)). % TODO redefine so that it calls query with depth limit
 chainlog_builtin(setof(_, _, _)).
 
+% Trivial chainlog_lib to ensure the predicate is defined, even if lib is not loaded. Always fails.
+chainlog_lib(_) :- fail.
+
 
 % Query interpreter.
 chainlog_query(true) :- !.
 chainlog_query(Goal) :-
   chainlog_builtin(Goal), !,
+  call(Goal).
+chainlog_query(Goal) :-
+  chainlog_lib(Goal), !,
   call(Goal).
 chainlog_query((G1, G2)) :-
   !, chainlog_query(G1), chainlog_query(G2).
@@ -196,4 +202,6 @@ chainlog_reserved_name(not).
 chainlog_reserved_name(on).
 % Names beginning with 'chainlog' are reserved.
 chainlog_reserved_name(Name) :- atom_concat(chainlog, _, Name).
+% Names beginning with '$' are reserved.
+chainlog_reserved_name(Name) :- atom_concat('$', _, Name).
 
