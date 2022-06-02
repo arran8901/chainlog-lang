@@ -2,7 +2,7 @@
 
 Repository for the Chainlog language interpreter and related utilities.
 
-## Language Files
+## Language Files
 The primary Chainlog language interpreter is written in Prolog, and resides in `chainlog-lang/interpreter.pl`. It performs as much of the interpretation process as is possible in portable Prolog.
 
 A collection of standard library predicates are found in `chainlog-lang/lib.pl`. This includes predicates such as `find_all/3` which are not expressible in pure Chainlog.
@@ -12,9 +12,10 @@ The interpreter can be executed using any Prolog implementation by consulting `c
 swipl chainlog-lang/interpreter.pl
 ?- ['chainlog-lang/lib.pl'].
 ```
+Alternatively, use the provided interactive interpreter `gochl`.
 
 ## Interactive Interpreter
-An interactive interpreter written in Go is provided in `cli/gochl.go`.
+An interactive Chainlog interpreter written in Go is provided in `cli/gochl.go`.
 
 To start `gochl` from the project root, run:
 ```
