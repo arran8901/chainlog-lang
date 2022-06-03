@@ -164,12 +164,17 @@ func (i *Interpreter) Consult(program string) error {
 }
 
 // ConsultWithDynamicKB loads both program source code and dynamic KB
-func (i *Interpreter) ConsultWithDynamicKB(program string, dynamicKB string) error {
+func (i *Interpreter) ConsultWithDynamicKB(program string, dynamicKB []string) error {
 	err := i.Consult(program)
 	if err != nil {
 		return err
 	}
-	err = i.prologInterpreter.Exec(dynamicKB)
+	var sb strings.Builder
+	for _, dynamicFact := range dynamicKB {
+		sb.WriteString(fmt.Sprintf("dyn(%s).\n", dynamicFact))
+	}
+
+	err = i.prologInterpreter.Exec(sb.String())
 	if err != nil {
 		return err
 	}
@@ -251,14 +256,13 @@ func (i *Interpreter) Retract(term string) {
 }
 
 // GetDynamicKB returns the current state of the dynamic KB as a source code string.
-func (i *Interpreter) GetDynamicKB() string {
+func (i *Interpreter) GetDynamicKB() (dynamicKB []string) {
 	sols, err := i.prologInterpreter.Query(`dyn(Term).`)
 	if err != nil {
 		panic(err)
 	}
 	defer sols.Close()
 
-	var sb strings.Builder
 	for sols.Next() {
 		var s struct {
 			Term engine.Term
@@ -266,8 +270,16 @@ func (i *Interpreter) GetDynamicKB() string {
 		if err := sols.Scan(&s); err != nil {
 			panic(err)
 		}
-		sb.WriteString(termToString(s.Term))
-		sb.WriteString(".\n")
+		dynamicKB = append(dynamicKB, termToString(s.Term))
+	}
+	return
+}
+
+// DynamicKBAsLogicProgram formats the given dynamic KB as logic program code.
+func DynamicKBAsLogicProgram(dynamicKB []string) string {
+	var sb strings.Builder
+	for _, dynamicFact := range dynamicKB {
+		sb.WriteString(fmt.Sprintf("%s.\n", dynamicFact))
 	}
 	return sb.String()
 }

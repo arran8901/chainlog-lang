@@ -30,10 +30,7 @@ func TestDynamicKB(t *testing.T) {
 human(john).
 human(sophie).
 	`
-	const dynamicKB = `
-dyn human(mark).
-dyn human(catherine).
-	`
+	var dynamicKB = []string{"human(mark)", "human(catherine)"}
 
 	i := newTestInterpreter()
 	if err := i.ConsultWithDynamicKB(program, dynamicKB); err != nil {
@@ -47,7 +44,7 @@ dyn human(catherine).
 		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
 		&Derivation{Successful: false},
 	)
-	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(mark).\nhuman(catherine).\n" {
+	if dynamicKB := i.GetDynamicKB(); DynamicKBAsLogicProgram(dynamicKB) != "human(mark).\nhuman(catherine).\n" {
 		t.Fatalf("Expected dynamic KB {human(mark), human(catherine)}, got %s", dynamicKB)
 	}
 
@@ -60,7 +57,7 @@ dyn human(catherine).
 		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
 		&Derivation{Successful: false},
 	)
-	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(catherine).\n" {
+	if dynamicKB := i.GetDynamicKB(); DynamicKBAsLogicProgram(dynamicKB) != "human(catherine).\n" {
 		t.Fatalf("Expected dynamic KB {human(catherine)}, got %s", dynamicKB)
 	}
 
@@ -73,7 +70,7 @@ dyn human(catherine).
 		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
 		&Derivation{Successful: false},
 	)
-	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(catherine).\n" {
+	if dynamicKB := i.GetDynamicKB(); DynamicKBAsLogicProgram(dynamicKB) != "human(catherine).\n" {
 		t.Fatalf("Expected dynamic KB {human(catherine)}, got %s", dynamicKB)
 	}
 
@@ -87,7 +84,7 @@ dyn human(catherine).
 		&Derivation{Successful: true, Unifications: map[string]string{"X": "kyle"}},
 		&Derivation{Successful: false},
 	)
-	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(catherine).\nhuman(kyle).\n" {
+	if dynamicKB := i.GetDynamicKB(); DynamicKBAsLogicProgram(dynamicKB) != "human(catherine).\nhuman(kyle).\n" {
 		t.Fatalf("Expected dynamic KB {human(catherine), human(kyle)}, got %s", dynamicKB)
 	}
 
@@ -99,7 +96,7 @@ dyn human(catherine).
 		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
 		&Derivation{Successful: false},
 	)
-	if dynamicKB := i.GetDynamicKB(); dynamicKB != "" {
+	if dynamicKB := i.GetDynamicKB(); len(dynamicKB) != 0 {
 		t.Fatalf("Expected empty dynamic KB, got %s", dynamicKB)
 	}
 
@@ -118,7 +115,12 @@ dyn human(catherine).
 		&Derivation{Successful: true, Unifications: map[string]string{"X": "george"}},
 		&Derivation{Successful: false},
 	)
-	if dynamicKB := i.GetDynamicKB(); dynamicKB != newDynamicKB {
+	freshDynamicKB := fresh.GetDynamicKB()
+	equal := len(freshDynamicKB) == len(newDynamicKB)
+	for i, dynamicFact := range freshDynamicKB {
+		equal = equal && dynamicFact == newDynamicKB[i]
+	}
+	if !equal {
 		t.Fatalf("Expected dynamic KB {human(vincent), human(george)}, got %s", dynamicKB)
 	}
 }
@@ -134,25 +136,25 @@ func TestParametricDisasterInsurance(t *testing.T) {
 
 	// 1656028800 is Jun 24 00:00 GMT
 	if err := i.prologInterpreter.Exec(`
-rainfall(13, 1654819200).  % Jun 10
-rainfall(27, 1654905600).  % Jun 11
-rainfall(81, 1654992000).  % Jun 12
-rainfall(81, 1655078400).  % Jun 13
-rainfall(81, 1655164800).  % Jun 14
-rainfall(81, 1655251200).  % Jun 15
-rainfall(81, 1655337600).  % Jun 16
-rainfall(81, 1655424000).  % Jun 17
-rainfall(81, 1655510400).  % Jun 18
-rainfall(81, 1655596800).  % Jun 19
-rainfall(81, 1655683200).  % Jun 20
-rainfall(81, 1655769600).  % Jun 21
-rainfall(56, 1655856000).  % Jun 22
-rainfall(46, 1655942400).  % Jun 23
-rainfall(23, 1656028800).  % Jun 24
+dyn rainfall(13, 1654819200).  % Jun 10
+dyn rainfall(27, 1654905600).  % Jun 11
+dyn rainfall(81, 1654992000).  % Jun 12
+dyn rainfall(81, 1655078400).  % Jun 13
+dyn rainfall(81, 1655164800).  % Jun 14
+dyn rainfall(81, 1655251200).  % Jun 15
+dyn rainfall(81, 1655337600).  % Jun 16
+dyn rainfall(81, 1655424000).  % Jun 17
+dyn rainfall(81, 1655510400).  % Jun 18
+dyn rainfall(81, 1655596800).  % Jun 19
+dyn rainfall(81, 1655683200).  % Jun 20
+dyn rainfall(81, 1655769600).  % Jun 21
+dyn rainfall(56, 1655856000).  % Jun 22
+dyn rainfall(46, 1655942400).  % Jun 23
+dyn rainfall(23, 1656028800).  % Jun 24
 
-seismic_intensity('5+', 1672534801).  % After expiration
+dyn seismic_intensity('5+', 1672534801).  % After expiration
 
-wind_speed(99, 1655164800).  % Jun 14
+dyn wind_speed(99, 1655164800).  % Jun 14
 	`); err != nil {
 		panic(err)
 	}
@@ -215,8 +217,8 @@ wind_speed(99, 1655164800).  % Jun 14
 
 	// Dynamic KB should show cyclone has been claimed.
 	dynamicKB := i.GetDynamicKB()
-	if strings.HasSuffix(dynamicKB, "claimed(cyclone, 1656288000).\n") {
-		t.Fatalf("expected dynamic KB of claimed(cyclone, 1656288000) at the end, got %s", dynamicKB)
+	if dynamicKB[len(dynamicKB)-1] != "claimed(cyclone,1656288000)" {
+		t.Fatalf("expected dynamic KB with claimed(cyclone, 1656288000) at the end, got %s", dynamicKB)
 	}
 }
 
