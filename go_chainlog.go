@@ -284,6 +284,13 @@ func DynamicKBAsLogicProgram(dynamicKB []string) string {
 	return sb.String()
 }
 
+// ParseDynamicKBLogicProgram extracts the facts from a dynamic KB formatted as a
+// logic program by DynamicKBAsLogicProgram.
+func ParseDynamicKBLogicProgram(dynamicKBLogicProgram string) []string {
+	split := strings.Split(dynamicKBLogicProgram, ".\n")
+	return split[:len(split)-1]
+}
+
 //go:embed chainlog-lang/interpreter.pl
 var chainlogInterpreter string
 
