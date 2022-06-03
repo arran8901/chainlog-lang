@@ -8,14 +8,18 @@ _ or Y :- Y.
 
 not X :- \+ X.
 
+% Declare `on` dynamic to ensure the predicate is defined, even if no message handlers have been
+% declared.
+:- dynamic(on/1).
+% Declare `dyn` dynamic to ensure the predicate is defined, even if the dynamic KB is empty.
+:- dynamic(dyn/1).
+
 :- op(1200, fx, on).
 :- op(1150, xfx, :).
 :- op(1050, fx, require).
 :- op(1050, fx, if).
 :- op(1050, fx, do).
-
-% Trivial `on` definition to ensure the predicate is defined.
-on fail.
+:- op(1150, fx, dyn).
 
 
 % Chainlog built-in predicates (inherited from ISO Prolog built-ins).
@@ -63,8 +67,8 @@ chainlog_builtin(bagof(_, _, _)).
 chainlog_builtin(findall(_, _, _)). % TODO redefine so that it calls query with depth limit
 chainlog_builtin(setof(_, _, _)).
 
-% Trivial chainlog_lib to ensure the predicate is defined, even if lib is not loaded. Always fails.
-chainlog_lib(_) :- fail.
+% Declare chainlog_lib/1 dynamic to ensure the predicate is defined, even if lib is not loaded.
+:- dynamic(chainlog_lib/1).
 
 
 % Query interpreter.
@@ -84,6 +88,8 @@ chainlog_query(G1 or G2) :-
 chainlog_query(Goal) :-
   clause(Goal, Body),
   chainlog_query(Body).
+chainlog_query(Goal) :-
+  dyn Goal.
 
 
 % Message interpreter
@@ -200,6 +206,7 @@ chainlog_check_require(Cond, ErrorCond) :-
 chainlog_reserved_name(or).
 chainlog_reserved_name(not).
 chainlog_reserved_name(on).
+chainlog_reserved_name(dyn).
 % Names beginning with 'chainlog' are reserved.
 chainlog_reserved_name(Name) :- atom_concat(chainlog, _, Name).
 % Names beginning with '$' are reserved.

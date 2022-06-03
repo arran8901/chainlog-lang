@@ -88,6 +88,52 @@ type MessageContext struct {
 	Balance uint
 }
 
+// Action represents a single action term resulting from a message.
+type Action interface {
+	fmt.Stringer
+	Kind() string
+}
+
+// AssertAction represents an assert/1 action term, to insert term into the dynamic KB.
+type AssertAction struct {
+	Term string
+}
+
+func (AssertAction) Kind() string {
+	return "assert"
+}
+
+func (a AssertAction) String() string {
+	return fmt.Sprintf("assert(%s)", a.Term)
+}
+
+// RetractAction represents a retract/1 action term, to remove term from the dynamic KB.
+type RetractAction struct {
+	Term string
+}
+
+func (RetractAction) Kind() string {
+	return "retract"
+}
+
+func (a RetractAction) String() string {
+	return fmt.Sprintf("retract(%s)", a.Term)
+}
+
+// TransferAction represents a transfer/2 action term, to transfer funds to an address.
+type TransferAction struct {
+	ToAddress string
+	Value     float64
+}
+
+func (TransferAction) Kind() string {
+	return "transfer"
+}
+
+func (a TransferAction) String() string {
+	return fmt.Sprintf("transfer(%s, %f)", a.ToAddress, a.Value)
+}
+
 // asChainlogTerm formats the message context into a Chainlog term and returns the
 // string representation.
 func (msgCtx *MessageContext) asChainlogTerm() string {
@@ -120,7 +166,7 @@ func (i *Interpreter) Consult(program string) error {
 // Query submits a Chainlog query for a given single goal term. Returns a
 // QueryIterator of derivations.
 func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
-	// TODO: injection vulnerability?
+	// TODO: injection vulnerability
 	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query((%s)).`, goal))
 	if err != nil {
 		return nil, err
@@ -130,7 +176,7 @@ func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
 
 // Message sends a Chainlog message with the given message term and context. Returns
 // the sequence of actions to be performed.
-func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]string, error) {
+func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]Action, error) {
 	var msgCtxTerm string = msgCtx.asChainlogTerm()
 
 	sol := i.prologInterpreter.QuerySolution(fmt.Sprintf(`chainlog_msg((%s), (%s), ActionsList).`, msgTerm, msgCtxTerm))
@@ -143,11 +189,33 @@ func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]string,
 	}
 	sol.Scan(&s)
 
-	var actions []string
-	for _, term := range s.ActionsList {
-		actions = append(actions, termToString(term))
+	var actions []Action
+	for _, actionTerm := range s.ActionsList {
+		actionCompound, ok := actionTerm.(*engine.Compound)
+		if !ok {
+			panic(fmt.Sprintf("Expected compound while parsing action: %s", termToString(actionTerm)))
+		}
+
+		var action Action
+		switch string(actionCompound.Functor) {
+		case "assert":
+			action = AssertAction{Term: termToString(actionCompound.Args[0])}
+		case "retract":
+			action = RetractAction{Term: termToString(actionCompound.Args[0])}
+		case "transfer":
+			action = TransferAction{ToAddress: string(actionCompound.Args[0].(engine.Atom)), Value: float64(actionCompound.Args[1].(engine.Float))}
+		}
+		actions = append(actions, action)
 	}
 	return actions, nil
+}
+
+func (i *Interpreter) Assert(term string) {
+	// TODO: injection vulnerability
+	sol := i.prologInterpreter.QuerySolution(fmt.Sprintf("assertz(dyn(%s)).", term))
+	if err := sol.Err(); err != nil {
+		panic(err)
+	}
 }
 
 //go:embed chainlog-lang/interpreter.pl

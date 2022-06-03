@@ -1,9 +1,19 @@
 
 
+chainlog_lib(add_time(_, _, _)).
+
+chainlog_lib(sum_list(_, _)).
+chainlog_lib(max_list(_, _)).
+chainlog_lib(min_list(_, _)).
+
+chainlog_lib(find_all(_, _, _)).
+chainlog_lib(find_all(_, _, _, _)).
+chainlog_lib(sum_all(_, _, _)).
+chainlog_lib(max_all(_, _, _)).
+chainlog_lib(min_all(_, _, _)).
+
 
 % Timestamp utilities.
-
-chainlog_lib(add_time(_, _, _)).
 
 add_time(Time, weeks(W), NewTime) :-
   !, Delta is W * 604800,
@@ -25,10 +35,6 @@ add_time(Time, Delta, NewTime) :-
 
 % List processing.
 
-chainlog_lib(sum_list(_, _)).
-chainlog_lib(max_list(_, _)).
-chainlog_lib(min_list(_, _)).
-
 sum_list([], 0).
 sum_list([H | T], Sum) :-
 	sum_list(T, Sum1),
@@ -46,12 +52,6 @@ min_list([H | T], Min) :-
 
 
 % All solutions & aggregation.
-
-chainlog_lib(find_all(_, _, _)).
-chainlog_lib(find_all(_, _, _, _)).
-chainlog_lib(sum_all(_, _, _)).
-chainlog_lib(max_all(_, _, _)).
-chainlog_lib(min_all(_, _, _)).
 
 find_all(Template, Goal, Instances) :-
   find_all(Template, Goal, Instances, []).
