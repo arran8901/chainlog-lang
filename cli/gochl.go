@@ -128,6 +128,6 @@ func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.In
 	}
 
 	for _, action := range actions {
-		fmt.Println(action)
+		fmt.Println(action.String())
 	}
 }

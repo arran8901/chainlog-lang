@@ -1,0 +1,11 @@
+dyn fun(atom).
+dyn fun(compound(hello, 3, compound2(-4, 1.3))).
+dyn fun([1, 2, 3, 4]).
+dyn fun(fun([1, 2, re(r, 3), 4], X)).
+
+test :-
+  expect_query_true(fun(atom)),
+  expect_query_true(fun(compound(hello, 3, compound2(-4, 1.3)))),
+  expect_query_true(fun([1, 2, 3, 4])),
+  expect_query_true(fun(fun([1, 2, re(r, 3), 4], X))).
+

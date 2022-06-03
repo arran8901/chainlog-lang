@@ -210,12 +210,35 @@ func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]Action,
 	return actions, nil
 }
 
+// Assert adds the term as a fact in the dynamic KB.
 func (i *Interpreter) Assert(term string) {
 	// TODO: injection vulnerability
 	sol := i.prologInterpreter.QuerySolution(fmt.Sprintf("assertz(dyn(%s)).", term))
 	if err := sol.Err(); err != nil {
 		panic(err)
 	}
+}
+
+// GetDynamicKB returns the current state of the dynamic KB as a source code string.
+func (i *Interpreter) GetDynamicKB() string {
+	sols, err := i.prologInterpreter.Query(`dyn(Term).`)
+	if err != nil {
+		panic(err)
+	}
+	defer sols.Close()
+
+	var sb strings.Builder
+	for sols.Next() {
+		var s struct {
+			Term engine.Term
+		}
+		if err := sols.Scan(&s); err != nil {
+			panic(err)
+		}
+		sb.WriteString(termToString(s.Term))
+		sb.WriteString(".\n")
+	}
+	return sb.String()
 }
 
 //go:embed chainlog-lang/interpreter.pl
