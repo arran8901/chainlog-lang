@@ -216,9 +216,15 @@ func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]Action,
 		case "retract":
 			action = RetractAction{Term: termToString(actionCompound.Args[0])}
 		case "transfer":
+			var value uint64
+			if v, ok := actionCompound.Args[1].(engine.Float); ok {
+				value = uint64(v)
+			} else if v, ok := actionCompound.Args[1].(engine.Integer); ok {
+				value = uint64(v)
+			}
 			action = TransferAction{
 				ToAddress: string(actionCompound.Args[0].(engine.Atom)),
-				Value:     uint64(actionCompound.Args[1].(engine.Float)),
+				Value:     value,
 			}
 		}
 		actions = append(actions, action)
