@@ -12,9 +12,49 @@ For example, in SWI-Prolog:
 ```
 swipl chainlog-lang/interpreter.pl
 ?- ['chainlog-lang/lib.pl'].
-?- chainlog_query(3 < 4)
+?- chainlog_query(3 < 4).
 ```
 Alternatively, use the provided interactive interpreter `gochl`. See below for details.
+
+## Go-Chainlog: A Go Chainlog Interpreter
+
+Go-Chainlog is an abstraction around a Chainlog interpreter and a Prolog engine. It serves as a library for interpreting, querying and executing Chainlog files from Go code. The implementation is found in `go_chainlog.go`.
+
+Importing:
+```go
+import chainlog "github.com/arran8901/chainlog-lang"
+```
+
+Loading a Chainlog source:
+```go
+const source string = `
+mortal(X) :- man(X).
+man(socrates).
+`
+i := chainlog.NewInterpreter()
+if err := i.Consult(source); err != nil {
+  panic(err)
+}
+```
+
+Querying:
+```go
+itr, err := i.Query("mortal(X).")
+if err != nil {
+  panic(err)
+}
+for {
+  derivation, err := itr.Next()
+  if err != nil {
+    panic(err)
+  }
+  if !derivation.Successful {
+    fmt.Println("No more derivations")
+    break
+  }
+  fmt.Println(derivation.Unifications)
+}
+```
 
 ## Interactive Interpreter
 An interactive Chainlog interpreter written in Go is provided in `cli/gochl.go`.
