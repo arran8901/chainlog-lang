@@ -1,62 +1,65 @@
-policyholder(0x1234).
-data_source(0xABCD).
-insurer(0xA1B2).
-policy_expiration(1652918400).
-payout_limit(100).
+:- dynamic(wind_speed/2).
+:- dynamic(seismic_intensity/2).
+:- dynamic(rainfall/2).
 
+policyholder('0x1234').
+data_source('0xABCD').
+insurer('0xA1B2').
+
+policy_expiration(1672534800).
+
+payout_limit(cyclone, 100).
+payout_limit(earthquake, 100).
+payout_limit(flood, 10).
 
 % Typhoon policy
-cyclone_category(violent_typhoon, T) :- wind_speed(WindSpeedKnots, T),
-                                        WindSpeedKnots >= 105.
-cyclone_category(v_strong_typhoon, T) :- wind_speed(WindSpeedKnots, T),
-                                         WindSpeedKnots >= 85,
-                                         WindSpeedKnots < 105.
-cyclone_category(typhoon, T) :- wind_speed(WindSpeedKnots, T),
-                                WindSpeedKnots >= 64,
-                                WindSpeedKnots < 85.
+cyclone_category(violent_typhoon, T)  :- wind_speed(Speed, T), Speed >= 105.
+cyclone_category(v_strong_typhoon, T) :- wind_speed(Speed, T), Speed >= 85, Speed < 105.
+cyclone_category(typhoon, T)          :- wind_speed(Speed, T), Speed >= 64, Speed < 85.
 
-payout_percentage(100) :- cyclone_category(violent_typhoon, _T).
-payout_percentage(80) :- cyclone_category(v_strong_typhoon, _T).
-payout_percentage(40) :- cyclone_category(typhoon, _T).
-
+payout_percentage(cyclone, 100, T) :- cyclone_category(violent_typhoon, T).
+payout_percentage(cyclone, 80, T)  :- cyclone_category(v_strong_typhoon, T).
+payout_percentage(cyclone, 40, T)  :- cyclone_category(typhoon, T).
 
 % Earthquake policy
-payout_percentage(100) :- seismic_intensity(Intensity, _T),
-                          Intensity = '6+' or
-                          Intensity = '7'.
-payout_percentage(80) :- seismic_intensity(Intensity, _T),
-                         Intensity = '6-'.
-payout_percentage(40) :- seismic_intensity(Intensity, _T),
-                         Intensity = '5+'.
+payout_percentage(earthquake, 100, T) :- seismic_intensity(Intensity, T),
+                                         (Intensity = '6+' or
+                                          Intensity = '7').
+payout_percentage(earthquake, 80, T)  :- seismic_intensity(Intensity, T), Intensity = '6-'.
+payout_percentage(earthquake, 40, T)  :- seismic_intensity(Intensity, T), Intensity = '5+'.
 
+% Flood policy
+ten_day_rainfall(TenDayMM, T) :-
+  rainfall(_, T),
+  add_time(T, days(10), T2),
+  sum_all(OneDayMM, (rainfall(OneDayMM, Day), Day >= T, Day < T2), TenDayMM).
 
-% Rainfall policy
-ten_day_rainfall(TenDayMM) :-
-  rainfall(_, D1),
-  add_time(D1, 10 days, D2),
-  sum_all(DayMM, (rainfall(D, DayMM), D >= D1, D < D2), TenDayMM).
+payout_percentage(flood, 100, T) :- ten_day_rainfall(TenDayMM, T), TenDayMM > 800.
 
-payout_percentage(100) :- ten_day_rainfall(TenDayMM), TenDayMM > 800.
-
-
-% Payout calculation
-payout(Value) :- payout_limit(Limit),
-                 payout_percentage(Percentage),
-                 Value is Limit * Percentage / 100.
-
+% Eligibility to claim payout
+eligible_for(Disaster, PercentagePayout) :-
+  payout_percentage(Disaster, PercentagePayout, T),
+  policy_expiration(ExpT),
+  T < ExpT,
+  not (claimed(Disaster, ClaimT),
+       add_time(ClaimT, weeks(4), T1),
+       T < T1).
 
 % Message handlers
 on disasterData(Data):
   require sender(Sender), data_source(Sender);
   do      assert(Data).
 
-on claimPayout:
+on claimPayout(Disaster):
   require sender(Sender), policyholder(Sender);
-  require not claimed;
-  require time(T), policy_expiration(ExpirationDate), T < ExpirationDate;
-  if      payout(Value);
-  do      assert(claimed),
-          transfer(Sender, Value).
+  require eligible_for(Disaster, PercentagePayout);
+
+  if      payout_limit(Disaster, Limit),
+          Payout is Limit * PercentagePayout / 100;
+  if      time(Now);
+
+  do      assert(claimed(Disaster, Now)),
+          transfer(Sender, Payout).
 
 on terminate:
   require time(T), policy_expiration(ExpirationDate), T > ExpirationDate;
