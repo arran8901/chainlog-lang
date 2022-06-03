@@ -127,7 +127,21 @@ func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.In
 		return
 	}
 
+	updateDynamicKB := false
+
 	for _, action := range actions {
 		fmt.Println(action.String())
+		switch v := action.(type) {
+		case chainlog.AssertAction:
+			i.Assert(v.Term)
+			updateDynamicKB = true
+		case chainlog.RetractAction:
+			i.Retract(v.Term)
+			updateDynamicKB = true
+		}
+	}
+
+	if updateDynamicKB {
+		fmt.Printf("Updated dynamic KB: %s\n", i.GetDynamicKB())
 	}
 }
