@@ -82,10 +82,10 @@ type Address string
 // MessageContext contains contextual information about a Chainlog message.
 type MessageContext struct {
 	Sender Address
-	Value  uint
-	Time   uint
+	Value  uint64
+	Time   int64
 
-	Balance uint
+	Balance uint64
 }
 
 // Action represents a single action term resulting from a message.
@@ -123,7 +123,7 @@ func (a RetractAction) String() string {
 // TransferAction represents a transfer/2 action term, to transfer funds to an address.
 type TransferAction struct {
 	ToAddress string
-	Value     float64
+	Value     uint64
 }
 
 func (TransferAction) Kind() string {
@@ -131,7 +131,7 @@ func (TransferAction) Kind() string {
 }
 
 func (a TransferAction) String() string {
-	return fmt.Sprintf("transfer(%s, %f)", a.ToAddress, a.Value)
+	return fmt.Sprintf("transfer(%s, %d)", a.ToAddress, a.Value)
 }
 
 // asChainlogTerm formats the message context into a Chainlog term and returns the
@@ -216,7 +216,10 @@ func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]Action,
 		case "retract":
 			action = RetractAction{Term: termToString(actionCompound.Args[0])}
 		case "transfer":
-			action = TransferAction{ToAddress: string(actionCompound.Args[0].(engine.Atom)), Value: float64(actionCompound.Args[1].(engine.Float))}
+			action = TransferAction{
+				ToAddress: string(actionCompound.Args[0].(engine.Atom)),
+				Value:     uint64(actionCompound.Args[1].(engine.Float)),
+			}
 		}
 		actions = append(actions, action)
 	}

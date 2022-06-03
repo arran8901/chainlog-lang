@@ -48,7 +48,7 @@ func main() {
 	msgCtx := &chainlog.MessageContext{
 		Sender:  "0x0",
 		Value:   0,
-		Time:    uint(time.Now().Unix()),
+		Time:    time.Now().Unix(),
 		Balance: 0,
 	}
 
