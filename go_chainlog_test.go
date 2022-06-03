@@ -25,6 +25,104 @@ func TestLib(t *testing.T) {
 	runTestsForDir(t, "tests/lib")
 }
 
+func TestDynamicKB(t *testing.T) {
+	const program = `
+human(john).
+human(sophie).
+	`
+	const dynamicKB = `
+dyn human(mark).
+dyn human(catherine).
+	`
+
+	i := newTestInterpreter()
+	if err := i.ConsultWithDynamicKB(program, dynamicKB); err != nil {
+		panic(err)
+	}
+
+	expectQueryDerivations(t, i, `human(X)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "john"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "mark"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
+		&Derivation{Successful: false},
+	)
+	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(mark).\nhuman(catherine).\n" {
+		t.Fatalf("Expected dynamic KB {human(mark), human(catherine)}, got %s", dynamicKB)
+	}
+
+	// Should be able to retract dynamic fact.
+	i.Retract(`human(mark)`)
+
+	expectQueryDerivations(t, i, `human(X)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "john"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
+		&Derivation{Successful: false},
+	)
+	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(catherine).\n" {
+		t.Fatalf("Expected dynamic KB {human(catherine)}, got %s", dynamicKB)
+	}
+
+	// Should not be able to retract static fact.
+	i.Retract(`human(sophie)`)
+
+	expectQueryDerivations(t, i, `human(X)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "john"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
+		&Derivation{Successful: false},
+	)
+	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(catherine).\n" {
+		t.Fatalf("Expected dynamic KB {human(catherine)}, got %s", dynamicKB)
+	}
+
+	// Should be able to assert dynamic fact.
+	i.Assert(`human(kyle)`)
+
+	expectQueryDerivations(t, i, `human(X)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "john"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "catherine"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "kyle"}},
+		&Derivation{Successful: false},
+	)
+	if dynamicKB := i.GetDynamicKB(); dynamicKB != "human(catherine).\nhuman(kyle).\n" {
+		t.Fatalf("Expected dynamic KB {human(catherine), human(kyle)}, got %s", dynamicKB)
+	}
+
+	// Should be able to retract multiple dynamic facts without retracting static facts.
+	i.Retract(`human(_)`)
+
+	expectQueryDerivations(t, i, `human(X)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "john"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
+		&Derivation{Successful: false},
+	)
+	if dynamicKB := i.GetDynamicKB(); dynamicKB != "" {
+		t.Fatalf("Expected empty dynamic KB, got %s", dynamicKB)
+	}
+
+	// Dynamic KB from one interpreter should be loadable in a fresh interpreter.
+	i.Assert(`human(vincent)`)
+	i.Assert(`human(george)`)
+	newDynamicKB := i.GetDynamicKB()
+
+	fresh := newTestInterpreter()
+	fresh.ConsultWithDynamicKB(program, newDynamicKB)
+
+	expectQueryDerivations(t, fresh, `human(X)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "john"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "sophie"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "vincent"}},
+		&Derivation{Successful: true, Unifications: map[string]string{"X": "george"}},
+		&Derivation{Successful: false},
+	)
+	if dynamicKB := i.GetDynamicKB(); dynamicKB != newDynamicKB {
+		t.Fatalf("Expected dynamic KB {human(vincent), human(george)}, got %s", dynamicKB)
+	}
+}
+
 func TestParametricDisasterInsurance(t *testing.T) {
 	fileBytes, _ := ioutil.ReadFile("tests/full_examples/parametric_disaster_insurance.chl")
 	fileSource := string(fileBytes)
@@ -33,8 +131,8 @@ func TestParametricDisasterInsurance(t *testing.T) {
 	if err := i.Consult(fileSource); err != nil {
 		panic(err)
 	}
-	// 1656028800 is Jun 24 00:00 GMT
 
+	// 1656028800 is Jun 24 00:00 GMT
 	if err := i.prologInterpreter.Exec(`
 rainfall(13, 1654819200).  % Jun 10
 rainfall(27, 1654905600).  % Jun 11
@@ -97,13 +195,13 @@ wind_speed(99, 1655164800).  % Jun 14
 	}
 	i.Assert(actions[0].(AssertAction).Term)
 
-	// Expect flood 100% but no longer cyclone
+	// Expect flood 100% but no longer cyclone.
 	expectQueryDerivations(t, i, `eligible_for(D, P)`,
 		&Derivation{Successful: true, Unifications: map[string]string{"D": "flood", "P": "100"}},
 		&Derivation{Successful: false},
 	)
 
-	// Attempt cyclone payout when not eligible
+	// Attempt cyclone payout when not eligible.
 	_, err = i.Message(`claimPayout(cyclone)`, &MessageContext{
 		Sender:  "0x1234",
 		Value:   0,
@@ -115,7 +213,7 @@ wind_speed(99, 1655164800).  % Jun 14
 		t.Fatalf("Expected require_error with eligible_for(cyclone, _) but got %s", err.Error())
 	}
 
-	// Dynamic KB should show cyclone has been claimed
+	// Dynamic KB should show cyclone has been claimed.
 	dynamicKB := i.GetDynamicKB()
 	if strings.HasSuffix(dynamicKB, "claimed(cyclone, 1656288000).\n") {
 		t.Fatalf("expected dynamic KB of claimed(cyclone, 1656288000) at the end, got %s", dynamicKB)

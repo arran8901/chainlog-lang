@@ -163,6 +163,19 @@ func (i *Interpreter) Consult(program string) error {
 	return nil
 }
 
+// ConsultWithDynamicKB loads both program source code and dynamic KB
+func (i *Interpreter) ConsultWithDynamicKB(program string, dynamicKB string) error {
+	err := i.Consult(program)
+	if err != nil {
+		return err
+	}
+	err = i.prologInterpreter.Exec(dynamicKB)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Query submits a Chainlog query for a given single goal term. Returns a
 // QueryIterator of derivations.
 func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
@@ -214,6 +227,15 @@ func (i *Interpreter) Message(msgTerm string, msgCtx *MessageContext) ([]Action,
 func (i *Interpreter) Assert(term string) {
 	// TODO: injection vulnerability
 	sol := i.prologInterpreter.QuerySolution(fmt.Sprintf("assertz(dyn(%s)).", term))
+	if err := sol.Err(); err != nil {
+		panic(err)
+	}
+}
+
+// Retract removes from the dynamic KB all facts unifying with the given term.
+func (i *Interpreter) Retract(term string) {
+	// TODO: injection vulnerability
+	sol := i.prologInterpreter.QuerySolution(fmt.Sprintf("retractall(dyn(%s)).", term))
 	if err := sol.Err(); err != nil {
 		panic(err)
 	}
