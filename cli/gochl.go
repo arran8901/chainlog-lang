@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 )
 
 var queryDelimiter *regexp.Regexp = regexp.MustCompile(`\.(\s+|$)`)
+var whitespace *regexp.Regexp = regexp.MustCompile(`\s+`)
 
 func usage() {
 	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
@@ -65,8 +67,15 @@ func main() {
 		for _, submission := range submissions {
 			switch {
 			case strings.HasPrefix(submission, ":"):
-				// Context directive
-				// TODO
+				// Context command
+				splitSubmission := whitespace.Split(submission[1:], -1)
+				var components []string
+				for _, component := range splitSubmission {
+					if component != "" {
+						components = append(components, component)
+					}
+				}
+				processContextCommand(components, msgCtx)
 			case strings.HasPrefix(submission, "$"):
 				// Message
 				sendMessage(submission[1:], msgCtx, i)
@@ -143,5 +152,56 @@ func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.In
 
 	if updateDynamicKB {
 		fmt.Printf("Updated dynamic KB: %s\n", i.GetDynamicKB())
+	}
+}
+
+// processContextCommand updates the message context as dictated by the context command.
+func processContextCommand(args []string, msgCtx *chainlog.MessageContext) {
+	if len(args) == 0 {
+		fmt.Printf("Context: %+v\n", *msgCtx)
+		return
+	}
+
+	switch args[0] {
+	case "sender":
+		if len(args) > 1 {
+			msgCtx.Sender = chainlog.Address(args[1])
+		}
+		fmt.Printf("Sender: %s\n", msgCtx.Sender)
+
+	case "value":
+		if len(args) > 1 {
+			value, err := strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Value not convertible to uint: %s\n", args[1])
+				return
+			}
+			msgCtx.Value = value
+		}
+		fmt.Printf("Value: %d\n", msgCtx.Value)
+
+	case "time":
+		if len(args) > 1 {
+			time, err := strconv.ParseInt(args[1], 10, 64)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Time not convertible to int: %s\n", args[1])
+				return
+			}
+			msgCtx.Time = time
+		}
+		fmt.Printf("Time: %d\n", msgCtx.Time)
+
+	case "balance":
+		if len(args) > 1 {
+			balance, err := strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Balance not convertible to uint: %s\n", args[1])
+			}
+			msgCtx.Balance = balance
+		}
+		fmt.Printf("Time: %d\n", msgCtx.Balance)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown context variable: %s\n", args[0])
 	}
 }

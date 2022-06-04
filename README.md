@@ -66,7 +66,23 @@ go run cli/gochl.go [<chl-file>...]
 Recommended: use `rlwrap` to enable line editing and history.
 
 The interpreter allows you to submit queries such as `age(X, A), A >= 40` as an interactive Prolog interpreter would.
+
 It also allows you to simulate message calls by beginning input with `$` and entering a message term. For example, `$ withdraw(30)`. The actions that would result from such a message will be displayed.
+
+Messages execute in a _message context_, which includes contextual information about the message (sender and value), current block (time) and contract (balance) at the time of the message. `gochl` simulates a message context. To see the context, use the context command `:` in the prompt:
+```
+?- :
+```
+To see a single context variable, enter the variable name after the colon:
+```
+?- :sender
+?- :time
+```
+To set the value of a context variable, enter the variable name followed by the value you wish to set:
+```
+?- :balance 300
+?- :sender chainlog1krvhlmkhu4c9jgc7w32vetgy9saf6utreh8mya
+```
 
 ## Testing
 A testing framework and test suite are provided.

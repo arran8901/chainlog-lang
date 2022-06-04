@@ -53,7 +53,6 @@ chainlog_builtin(nonvar(_)).
 chainlog_builtin(number(_)).
 chainlog_builtin(ground(_)).
 
-% Library predicates (TODO need defining)
 chainlog_builtin(between(_, _, _)).
 
 chainlog_builtin(member(_, _)).
@@ -62,10 +61,6 @@ chainlog_builtin(length(_, _)).
 chainlog_builtin(select(_, _, _)).
 chainlog_builtin(nth0(_, _, _)).
 chainlog_builtin(nth1(_, _, _)).
-
-chainlog_builtin(bagof(_, _, _)).
-chainlog_builtin(findall(_, _, _)). % TODO redefine so that it calls query with depth limit
-chainlog_builtin(setof(_, _, _)).
 
 % Declare chainlog_lib/1 dynamic to ensure the predicate is defined, even if lib is not loaded.
 :- dynamic(chainlog_lib/1).
