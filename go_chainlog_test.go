@@ -134,6 +134,10 @@ func TestParametricDisasterInsurance(t *testing.T) {
 		panic(err)
 	}
 
+	const policyholder Address = Address("chainlog103v2kw0xnhdfrnzukphheq9zlm67xg8ykjhfrc")
+	const dataSource Address = Address("chainlog1rdhj3kcg9kr9y7pm489z579n9eqcsqyq0rjmwd")
+	const insurer Address = Address("chainlog12t7x9c08wyuurnw7ayhjvv7ycev29tstudcxrp")
+
 	// 1656028800 is Jun 24 00:00 GMT
 	if err := i.prologInterpreter.Exec(`
 dyn rainfall(13, 1654819200).  % Jun 10
@@ -152,7 +156,7 @@ dyn rainfall(56, 1655856000).  % Jun 22
 dyn rainfall(46, 1655942400).  % Jun 23
 dyn rainfall(23, 1656028800).  % Jun 24
 
-dyn seismic_intensity('5+', 1672534801).  % After expiration
+% dyn seismic_intensity('5+', 1672534801).  % After expiration
 
 dyn wind_speed(99, 1655164800).  % Jun 14
 	`); err != nil {
@@ -168,18 +172,18 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 
 	// Attempt payout from wrong address.
 	_, err := i.Message(`claimPayout(cyclone)`, &MessageContext{
-		Sender:  "0x5555",
+		Sender:  dataSource,
 		Value:   0,
 		Time:    1656288000,
 		Balance: 1000,
 	})
-	if err.Error() != "error(require_error, context(claimPayout(cyclone), msg_ctx('0x5555', 0, 1656288000, 1000), , (sender('0x5555'), policyholder('0x5555')), policyholder('0x5555')))" {
-		t.Fatalf("Expected require_error but got %s", err.Error())
+	if !(strings.Contains(err.Error(), "require_error") && strings.Contains(err.Error(), fmt.Sprintf("policyholder(%s)", dataSource))) {
+		t.Fatalf("Expected require_error with policyholder/1 but got %s", err.Error())
 	}
 
 	// Make a cyclone payout (from correct address).
 	actions, err := i.Message(`claimPayout(cyclone)`, &MessageContext{
-		Sender:  "0x1234",
+		Sender:  policyholder,
 		Value:   0,
 		Time:    1656288000, // Jun 27
 		Balance: 1000,
@@ -191,9 +195,9 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 		actions[0].Kind() == "assert" &&
 		actions[0].(AssertAction).Term == "claimed(cyclone,1656288000)" &&
 		actions[1].Kind() == "transfer" &&
-		actions[1].(TransferAction).ToAddress == "0x1234" &&
+		actions[1].(TransferAction).ToAddress == string(policyholder) &&
 		actions[1].(TransferAction).Value == 80) {
-		t.Fatalf("Expected actions [assert(claimed(cyclone,1656288000)), transfer(0x1234,80)], got %s", actions)
+		t.Fatalf("Expected actions [assert(claimed(cyclone,1656288000)), transfer(%s,80)], got %s", policyholder, actions)
 	}
 	i.Assert(actions[0].(AssertAction).Term)
 
@@ -205,7 +209,7 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 
 	// Attempt cyclone payout when not eligible.
 	_, err = i.Message(`claimPayout(cyclone)`, &MessageContext{
-		Sender:  "0x1234",
+		Sender:  policyholder,
 		Value:   0,
 		Time:    1656374400, // Jun 28
 		Balance: 920,
@@ -218,7 +222,18 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 	// Dynamic KB should show cyclone has been claimed.
 	dynamicKB := i.GetDynamicKB()
 	if dynamicKB[len(dynamicKB)-1] != "claimed(cyclone,1656288000)" {
-		t.Fatalf("expected dynamic KB with claimed(cyclone, 1656288000) at the end, got %s", dynamicKB)
+		t.Fatalf("Expected dynamic KB with claimed(cyclone, 1656288000) at the end, got %s", dynamicKB)
+	}
+
+	// Claim attempt after policy expiration should fail
+	_, err = i.Message(`claimPayout(flood)`, &MessageContext{
+		Sender:  policyholder,
+		Value:   0,
+		Time:    1672621200, // Jan 2 2023
+		Balance: 920,
+	})
+	if !(strings.Contains(err.Error(), "require_error") && strings.Contains(err.Error(), "policy_expiration(1672534800), <(1672621200, 1672534800")) {
+		t.Fatalf("Expected require_error with policy_expiration < time, got: %s\n", err.Error())
 	}
 }
 

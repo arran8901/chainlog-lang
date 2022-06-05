@@ -1,10 +1,6 @@
-:- dynamic(wind_speed/2).
-:- dynamic(seismic_intensity/2).
-:- dynamic(rainfall/2).
-
-policyholder('0x1234').
-data_source('0xABCD').
-insurer('0xA1B2').
+policyholder('chainlog103v2kw0xnhdfrnzukphheq9zlm67xg8ykjhfrc').
+data_source('chainlog1rdhj3kcg9kr9y7pm489z579n9eqcsqyq0rjmwd').
+insurer('chainlog12t7x9c08wyuurnw7ayhjvv7ycev29tstudcxrp').
 
 policy_expiration(1672534800).
 
@@ -39,24 +35,22 @@ payout_percentage(flood, 100, T) :- ten_day_rainfall(TenDayMM, T), TenDayMM > 80
 % Eligibility to claim payout
 eligible_for(Disaster, PercentagePayout) :-
   payout_percentage(Disaster, PercentagePayout, T),
-  policy_expiration(ExpT),
-  T < ExpT,
   not (claimed(Disaster, ClaimT),
        add_time(ClaimT, weeks(4), T1),
        T < T1).
 
 % Message handlers
-on disasterData(Data):
+on inputDisasterData(Data):
   require sender(Sender), data_source(Sender);
   do      assert(Data).
 
 on claimPayout(Disaster):
   require sender(Sender), policyholder(Sender);
+  require time(Now), policy_expiration(ExpT), Now < ExpT;
   require eligible_for(Disaster, PercentagePayout);
 
   if      payout_limit(Disaster, Limit),
           Payout is Limit * PercentagePayout / 100;
-  if      time(Now);
 
   do      assert(claimed(Disaster, Now)),
           transfer(Sender, Payout).
