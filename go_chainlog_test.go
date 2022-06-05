@@ -225,7 +225,7 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 		t.Fatalf("Expected dynamic KB with claimed(cyclone, 1656288000) at the end, got %s", dynamicKB)
 	}
 
-	// Claim attempt after policy expiration should fail
+	// Claim attempt after policy expiration should fail.
 	_, err = i.Message(`claimPayout(flood)`, &MessageContext{
 		Sender:  policyholder,
 		Value:   0,
@@ -233,7 +233,34 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 		Balance: 920,
 	})
 	if !(strings.Contains(err.Error(), "require_error") && strings.Contains(err.Error(), "policy_expiration(1672534800), <(1672621200, 1672534800")) {
-		t.Fatalf("Expected require_error with policy_expiration < time, got: %s\n", err.Error())
+		t.Fatalf("Expected require_error with time < policy_expiration, got: %s\n", err.Error())
+	}
+
+	// Terminate before policy expiration should fail.
+	_, err = i.Message(`terminate`, &MessageContext{
+		Sender:  insurer,
+		Time:    1672448400, // Dec 31 2022
+		Balance: 920,
+	})
+	if !(strings.Contains(err.Error(), "require_error") && strings.Contains(err.Error(), "policy_expiration(1672534800), >(1672448400, 1672534800")) {
+		t.Fatalf("Expected require_error with time > policy_expration, got: %s\n", err.Error())
+	}
+
+	// Terminate after policy expiration should succeed.
+	// Expect contract balance to be transferred to insurer.
+	actions, err = i.Message(`terminate`, &MessageContext{
+		Sender:  insurer,
+		Time:    1672621200, // Jan 2 2023
+		Balance: 920,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "transfer" &&
+		actions[0].(TransferAction).ToAddress == string(insurer) &&
+		actions[0].(TransferAction).Value == 920) {
+		t.Fatalf("Expected actions [transfer(%s, 920)], got %s", insurer, actions)
 	}
 }
 
