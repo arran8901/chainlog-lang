@@ -95,6 +95,10 @@ find_all(_, _, Instances, Remainder) :-
   ;  '$collect'(Instances, [Template | Remainder])
   ).
 
+count_all(Template, Goal, Count) :-
+  find_all(Template, Goal, Instances),
+  length(Instances, Count).
+
 sum_all(Template, Goal, Sum) :-
   find_all(Template, Goal, Instances),
   sum_list(Instances, Sum).
