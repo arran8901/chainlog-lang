@@ -133,7 +133,7 @@ func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.In
 	// If message context had value, simulate the transfer to the contract.
 	if msgCtx.Value > 0 {
 		msgCtx.Balance += msgCtx.Value
-		msgCtx.Value = 0
+		defer func() { msgCtx.Value = 0 }()
 	}
 
 	// Submit message to interpreter.
@@ -174,13 +174,13 @@ func processContextCommand(args []string, msgCtx *chainlog.MessageContext) {
 	}
 
 	switch args[0] {
-	case "sender":
+	case "sender", "s":
 		if len(args) > 1 {
 			msgCtx.Sender = chainlog.Address(args[1])
 		}
 		fmt.Printf("Sender: %s\n", msgCtx.Sender)
 
-	case "value":
+	case "value", "v":
 		if len(args) > 1 {
 			value, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
@@ -191,7 +191,7 @@ func processContextCommand(args []string, msgCtx *chainlog.MessageContext) {
 		}
 		fmt.Printf("Value: %d\n", msgCtx.Value)
 
-	case "time":
+	case "time", "t":
 		if len(args) > 1 {
 			time, err := strconv.ParseInt(args[1], 10, 64)
 			if err != nil {
@@ -202,7 +202,7 @@ func processContextCommand(args []string, msgCtx *chainlog.MessageContext) {
 		}
 		fmt.Printf("Time: %d\n", msgCtx.Time)
 
-	case "balance":
+	case "balance", "b":
 		if len(args) > 1 {
 			balance, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
