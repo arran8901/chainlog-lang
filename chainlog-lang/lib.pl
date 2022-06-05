@@ -1,6 +1,12 @@
 
 
 chainlog_lib(add_time(_, _, _)).
+chainlog_lib(duration(_, _)).
+chainlog_lib(week(_)).
+chainlog_lib(day(_)).
+chainlog_lib(hour(_)).
+chainlog_lib(minute(_)).
+chainlog_lib(second(_)).
 
 chainlog_lib(sum_list(_, _)).
 chainlog_lib(max_list(_, _)).
@@ -31,6 +37,23 @@ add_time(Time, seconds(S), NewTime) :-
   !, NewTime is Time + S.
 add_time(Time, Delta, NewTime) :-
   NewTime is Time + Delta.
+
+duration(weeks(W), Duration) :-
+  !, Duration is W * 604800.
+duration(days(D), Duration) :-
+  !, Duration is D * 86400.
+duration(hours(H), Duration) :-
+  !, Duration is H * 3600.
+duration(minutes(M), Duration) :-
+  !, Duration is M * 60.
+duration(seconds(S), Duration) :-
+  !, Duration is S.
+
+week(W) :- duration(weeks(1), W).
+day(D) :- duration(days(1), D).
+hour(H) :- duration(hours(1), H).
+minute(M) :- duration(minutes(1), M).
+second(S) :- S.
 
 
 % List processing.

@@ -237,6 +237,289 @@ dyn wind_speed(99, 1655164800).  % Jun 14
 	}
 }
 
+func TestShippingNoRefund(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/shipping.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	const supplier Address = Address("chainlog1yyqgaseervflylmajgppcyjeuj7u7fxmnp9am0")
+	const carrier Address = Address("chainlog1l3nacxn04j0sjd38s6qn3tx6agh2m23jg3yek9")
+	const supplier_smart_sensor Address = Address("chainlog1av4684vuacgty6uxgrwfyql2wzfrkhjtjh9v7g")
+	const carrier_smart_sensor Address = Address("chainlog1cfmjc45797tuvvqguzaapjeylpfhvzr2y6yjam")
+	const consignee_smart_sensor Address = Address("chainlog1edc9s9kpgrssvxusp3kllkt7e03pmse7u6n8vv")
+	const shippingCost uint64 = 10
+
+	// Make supplier payment, expect single assert supplier_paid.
+	actions, err := i.Message(`supplierPayment`, &MessageContext{
+		Sender:  supplier,
+		Value:   200,
+		Time:    1654819200, // Jun 10
+		Balance: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "supplier_paid(200,1654819200)") {
+		t.Fatalf("Expected actions [assert(supplier_paid(200,1654819200))], got %s", actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Dispatch shipment ID 23, expect single assert dispatched.
+	actions, err = i.Message(`shipmentDispatched(23)`, &MessageContext{
+		Sender: supplier_smart_sensor,
+		Time:   1654819200, // Jun 10
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "dispatched(23,1654819200)") {
+		t.Fatalf("Expected actions [assert(dispatched(23,1654819200))], got %s", actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Add monitoring data with no violations, expect single assert monitoring_data.
+	actions, err = i.Message(`monitoringData(23, [0, 0], 10, 89)`, &MessageContext{
+		Sender: carrier_smart_sensor,
+		Time:   1654905600, // Jun 11
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "monitoring_data(23,[0,0],10,89,1654905600)") {
+		t.Fatalf("Expected actions [assert(monitoring_data(23,[0,0],10,89,1654905600))], got %s", actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Shipment should not be damaged.
+	expectQueryDerivations(t, i, `damaged(23)`,
+		&Derivation{Successful: false, Unifications: nil},
+	)
+
+	// On delivery, full cost should be transferred to carrier.
+	actions, err = i.Message(`shipmentDelivered(23)`, &MessageContext{
+		Sender: consignee_smart_sensor,
+		Time:   1654992000, // Jun 12
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 2 &&
+		actions[0].Kind() == "transfer" &&
+		actions[0].(TransferAction).ToAddress == string(supplier) &&
+		actions[0].(TransferAction).Value == 0 &&
+		actions[1].Kind() == "transfer" &&
+		actions[1].(TransferAction).ToAddress == string(carrier) &&
+		actions[1].(TransferAction).Value == shippingCost) {
+		t.Fatalf("Expected actions [transfer(%s,0), transfer(%s,%d)], got: %s", supplier, carrier, shippingCost, actions)
+	}
+}
+
+func TestShippingDamagedTotalRefund(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/shipping.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	const supplier Address = Address("chainlog1yyqgaseervflylmajgppcyjeuj7u7fxmnp9am0")
+	const carrier Address = Address("chainlog1l3nacxn04j0sjd38s6qn3tx6agh2m23jg3yek9")
+	const supplier_smart_sensor Address = Address("chainlog1av4684vuacgty6uxgrwfyql2wzfrkhjtjh9v7g")
+	const carrier_smart_sensor Address = Address("chainlog1cfmjc45797tuvvqguzaapjeylpfhvzr2y6yjam")
+	const consignee_smart_sensor Address = Address("chainlog1edc9s9kpgrssvxusp3kllkt7e03pmse7u6n8vv")
+	const shippingCost uint64 = 10
+
+	// Make supplier payment.
+	actions, _ := i.Message(`supplierPayment`, &MessageContext{
+		Sender: supplier,
+		Value:  100,
+		Time:   1654819200, // Jun 10
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Dispatch shipment ID 92.
+	actions, _ = i.Message(`shipmentDispatched(92)`, &MessageContext{
+		Sender: supplier_smart_sensor,
+		Time:   1654819200, // Jun 10
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Add monitoring data with temperature violation, expect single assert monitoring_data.
+	actions, err := i.Message(`monitoringData(92, [0, 0], 13, 85)`, &MessageContext{
+		Sender: carrier_smart_sensor,
+		Time:   1654905600, // Jun 11
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "monitoring_data(92,[0,0],13,85,1654905600)") {
+		t.Fatalf("Expected actions [assert(monitoring_data(92,[0,0],13,85,1654905600))], got %s", actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Shipment should be damaged.
+	expectQueryDerivations(t, i, `damaged(92)`,
+		&Derivation{Successful: true, Unifications: map[string]string{}},
+		&Derivation{Successful: false, Unifications: nil},
+	)
+
+	// On delivery, full cost should be transferred to supplier.
+	actions, err = i.Message(`shipmentDelivered(92)`, &MessageContext{
+		Sender: consignee_smart_sensor,
+		Time:   1654992000, // Jun 12
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 2 &&
+		actions[0].Kind() == "transfer" &&
+		actions[0].(TransferAction).ToAddress == string(supplier) &&
+		actions[0].(TransferAction).Value == shippingCost &&
+		actions[1].Kind() == "transfer" &&
+		actions[1].(TransferAction).ToAddress == string(carrier) &&
+		actions[1].(TransferAction).Value == 0) {
+		t.Fatalf("Expected actions [transfer(%s,%d), transfer(%s,0)], got: %s", supplier, shippingCost, carrier, actions)
+	}
+}
+
+func TestShippingLateTotalRefund(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/shipping.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	const supplier Address = Address("chainlog1yyqgaseervflylmajgppcyjeuj7u7fxmnp9am0")
+	const carrier Address = Address("chainlog1l3nacxn04j0sjd38s6qn3tx6agh2m23jg3yek9")
+	const supplier_smart_sensor Address = Address("chainlog1av4684vuacgty6uxgrwfyql2wzfrkhjtjh9v7g")
+	const carrier_smart_sensor Address = Address("chainlog1cfmjc45797tuvvqguzaapjeylpfhvzr2y6yjam")
+	const consignee_smart_sensor Address = Address("chainlog1edc9s9kpgrssvxusp3kllkt7e03pmse7u6n8vv")
+	const shippingCost uint64 = 10
+
+	// Make supplier payment.
+	actions, _ := i.Message(`supplierPayment`, &MessageContext{
+		Sender: supplier,
+		Value:  100,
+		Time:   1654819200, // Jun 10
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Dispatch shipment ID 2.
+	actions, _ = i.Message(`shipmentDispatched(2)`, &MessageContext{
+		Sender: supplier_smart_sensor,
+		Time:   1654819200, // Jun 10
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Add monitoring data with no violations.
+	actions, _ = i.Message(`monitoringData(2, [0, 0], 11, 86)`, &MessageContext{
+		Sender: carrier_smart_sensor,
+		Time:   1654905600, // Jun 11
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Shipment should not be damaged.
+	expectQueryDerivations(t, i, `damaged(2)`,
+		&Derivation{Successful: false, Unifications: nil},
+	)
+
+	// On delivery, full cost should be transferred to supplier.
+	actions, err := i.Message(`shipmentDelivered(2)`, &MessageContext{
+		Sender: consignee_smart_sensor,
+		Time:   1655337600, // Jun 16
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 2 &&
+		actions[0].Kind() == "transfer" &&
+		actions[0].(TransferAction).ToAddress == string(supplier) &&
+		actions[0].(TransferAction).Value == shippingCost &&
+		actions[1].Kind() == "transfer" &&
+		actions[1].(TransferAction).ToAddress == string(carrier) &&
+		actions[1].(TransferAction).Value == 0) {
+		t.Fatalf("Expected actions [transfer(%s,%d), transfer(%s,0)], got: %s", supplier, shippingCost, carrier, actions)
+	}
+}
+
+func TestShippingPartialRefund(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/shipping.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	const supplier Address = Address("chainlog1yyqgaseervflylmajgppcyjeuj7u7fxmnp9am0")
+	const carrier Address = Address("chainlog1l3nacxn04j0sjd38s6qn3tx6agh2m23jg3yek9")
+	const supplier_smart_sensor Address = Address("chainlog1av4684vuacgty6uxgrwfyql2wzfrkhjtjh9v7g")
+	const carrier_smart_sensor Address = Address("chainlog1cfmjc45797tuvvqguzaapjeylpfhvzr2y6yjam")
+	const consignee_smart_sensor Address = Address("chainlog1edc9s9kpgrssvxusp3kllkt7e03pmse7u6n8vv")
+	const shippingCost uint64 = 10
+
+	// Make supplier payment.
+	actions, _ := i.Message(`supplierPayment`, &MessageContext{
+		Sender: supplier,
+		Value:  100,
+		Time:   1654819200, // Jun 10
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Dispatch shipment ID 19.
+	actions, _ = i.Message(`shipmentDispatched(19)`, &MessageContext{
+		Sender: supplier_smart_sensor,
+		Time:   1654819200, // Jun 10
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Add monitoring data with no violations.
+	actions, _ = i.Message(`monitoringData(19, [0, 0], 12, 87)`, &MessageContext{
+		Sender: carrier_smart_sensor,
+		Time:   1654905600, // Jun 11
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// Shipment should not be damaged.
+	expectQueryDerivations(t, i, `damaged(19)`,
+		&Derivation{Successful: false, Unifications: nil},
+	)
+
+	// On delivery, half cost should be transferred to supplier and carrier.
+	actions, err := i.Message(`shipmentDelivered(19)`, &MessageContext{
+		Sender: consignee_smart_sensor,
+		Time:   1655121600, // Jun 13 12:00pm
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	halfCost := shippingCost / 2
+	if !(len(actions) == 2 &&
+		actions[0].Kind() == "transfer" &&
+		actions[0].(TransferAction).ToAddress == string(supplier) &&
+		actions[0].(TransferAction).Value == halfCost &&
+		actions[1].Kind() == "transfer" &&
+		actions[1].(TransferAction).ToAddress == string(carrier) &&
+		actions[1].(TransferAction).Value == halfCost) {
+		t.Fatalf("Expected actions [transfer(%s,%d), transfer(%s,%d)], got: %s", supplier, halfCost, carrier, halfCost, actions)
+	}
+}
+
 func expectQueryDerivations(t *testing.T, i *Interpreter, query string, expectedDerivations ...*Derivation) {
 	itr, err := i.Query(query)
 	if err != nil {

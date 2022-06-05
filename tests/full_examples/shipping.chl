@@ -1,0 +1,67 @@
+supplier('chainlog1yyqgaseervflylmajgppcyjeuj7u7fxmnp9am0').
+carrier('chainlog1l3nacxn04j0sjd38s6qn3tx6agh2m23jg3yek9').
+
+supplier_smart_sensor('chainlog1av4684vuacgty6uxgrwfyql2wzfrkhjtjh9v7g').
+carrier_smart_sensor('chainlog1cfmjc45797tuvvqguzaapjeylpfhvzr2y6yjam').
+consignee_smart_sensor('chainlog1edc9s9kpgrssvxusp3kllkt7e03pmse7u6n8vv').
+
+shipping_cost(10).
+
+damaged(ShipmentID) :-
+  monitoring_data(ShipmentID, _, Temp, _, _),
+  not between(10, 12, Temp).
+damaged(ShipmentID) :-
+  monitoring_data(ShipmentID, _, _, Humidity, _),
+  not between(85, 90, Humidity).
+
+partial_refund(ShipmentID, ShipTime) :-
+  day(Days),
+  ShipTime >= 3 * Days,
+  ShipTime =< 4 * Days,
+  not damaged(ShipmentID).
+
+total_refund(_ShipmentID, ShipTime) :-
+  day(Days),
+  ShipTime >= 4 * Days.
+total_refund(ShipmentID, _ShipTime) :-
+  damaged(ShipmentID).
+
+% payment_distribution(+ShipmentID, +ShipTime, -SupplierShare, -CarrierShare)
+payment_distribution(ShipmentID, ShipTime, Cost, 0) :-
+  total_refund(ShipmentID, ShipTime),
+  shipping_cost(Cost).
+payment_distribution(ShipmentID, ShipTime, HalfCost, HalfCost) :-
+  partial_refund(ShipmentID, ShipTime),
+  shipping_cost(Cost),
+  HalfCost is Cost / 2.
+payment_distribution(ShipmentID, ShipTime, 0, Cost) :-
+  not total_refund(ShipmentID, ShipTime),
+  not partial_refund(ShipmentID, ShipTime),
+  shipping_cost(Cost).
+
+on supplierPayment:
+  require sender(Sender), supplier(Sender);
+  if      value(Payment), time(Time);
+  do      assert(supplier_paid(Payment, Time)).
+
+on shipmentDispatched(ShipmentID):
+  require sender(Sender), supplier_smart_sensor(Sender);
+  if      time(DispatchTime);
+  do      assert(dispatched(ShipmentID, DispatchTime)).
+
+on monitoringData(ShipmentID, Location, Temp, Humidity):
+  require sender(Sender), carrier_smart_sensor(Sender);
+  if      time(Time);
+  do      assert(monitoring_data(ShipmentID, Location, Temp, Humidity, Time)).
+
+on shipmentDelivered(ShipmentID):
+  require sender(Sender), consignee_smart_sensor(Sender);
+  require dispatched(ShipmentID, DispatchTime);
+  if      supplier(Supplier),
+          carrier(Carrier);
+  if      time(DeliverTime),
+          ShipTime is DeliverTime - DispatchTime,
+          payment_distribution(ShipmentID, ShipTime, SupplierShare, CarrierShare);
+  do      transfer(Supplier, SupplierShare),
+          transfer(Carrier, CarrierShare).
+
