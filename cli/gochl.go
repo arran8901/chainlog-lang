@@ -130,6 +130,13 @@ func queryGoal(goal string, i *chainlog.Interpreter, scanner *bufio.Scanner) {
 
 // sendMessage processes a single given message.
 func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.Interpreter) {
+	// If message context had value, simulate the transfer to the contract.
+	if msgCtx.Value > 0 {
+		msgCtx.Balance += msgCtx.Value
+		msgCtx.Value = 0
+	}
+
+	// Submit message to interpreter.
 	actions, err := i.Message(message, msgCtx)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -147,6 +154,10 @@ func sendMessage(message string, msgCtx *chainlog.MessageContext, i *chainlog.In
 		case chainlog.RetractAction:
 			i.Retract(v.Term)
 			updateDynamicKB = true
+		case chainlog.TransferAction:
+			// Simulate reduction in balance as a result of this transfer.
+			msgCtx.Balance -= v.Value
+			defer fmt.Printf("Updated balance: %d\n", msgCtx.Balance)
 		}
 	}
 
@@ -199,7 +210,7 @@ func processContextCommand(args []string, msgCtx *chainlog.MessageContext) {
 			}
 			msgCtx.Balance = balance
 		}
-		fmt.Printf("Time: %d\n", msgCtx.Balance)
+		fmt.Printf("Balance: %d\n", msgCtx.Balance)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown context variable: %s\n", args[0])
