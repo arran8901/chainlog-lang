@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/ichiban/prolog"
 	"github.com/ichiban/prolog/engine"
@@ -71,7 +72,9 @@ func (d *QueryIterator) Next() (*Derivation, error) {
 
 	unifications := make(map[string]string)
 	for variable, unifiedTerm := range m {
-		unifications[variable] = termToString(unifiedTerm)
+		if !strings.HasPrefix(variable, "_") {
+			unifications[variable] = termToString(unifiedTerm)
+		}
 	}
 	return &Derivation{Successful: true, Unifications: unifications}, nil
 }
@@ -334,7 +337,11 @@ func baseInterpreterFromSources(sources ...string) (*prolog.Interpreter, error) 
 func termToString(term engine.Term) string {
 	switch v := term.(type) {
 	case engine.Atom:
-		return string(v)
+		str := string(v)
+		if !unicode.IsLower(([]rune(str))[0]) {
+			str = fmt.Sprintf("'%s'", str)
+		}
+		return str
 	case engine.Variable:
 		return string(v)
 	case engine.Integer:
