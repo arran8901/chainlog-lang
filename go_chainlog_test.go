@@ -594,6 +594,21 @@ func TestPharmacogenomicsData(t *testing.T) {
 	)
 }
 
+func TestLicence(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/licence.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	// Use, publish and comment should be forbidden initially.
+	expectQueryDerivations(t, i, `forbidden(use)`, &Derivation{Successful: true})
+	expectQueryDerivations(t, i, `forbidden(publish)`, &Derivation{Successful: true})
+	expectQueryDerivations(t, i, `forbidden(comment)`, &Derivation{Successful: true})
+}
+
 func expectQueryDerivations(t *testing.T, i *Interpreter, query string, expectedDerivations ...*Derivation) {
 	itr, err := i.Query(query)
 	if err != nil {

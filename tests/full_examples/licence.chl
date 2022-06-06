@@ -1,0 +1,38 @@
+arbiter('chainlog1flkj3fyy8px5496te0gy82khw5ddv7u8y5tk0x').
+
+action(A) :- member(A, [use, publish, comment, remove]).
+
+forbidden(A) :- action(A), not permission(A).
+permission(A) :- action(A), obligation(A).
+
+% Article 1
+permission(use) :- has_license.
+
+% Article 2
+permission(publish) :- has_license, has_approval.
+obligation(remove) :- forbidden(publish), publish.
+
+% Article 3
+permission(comment) :- permission(publish).
+
+% Article 4
+obligation(publish) :- has_license, is_commissioned.
+
+% Article 5
+violation :- action(A), forbidden(A), A.
+violation :- action(A), obligation(A), not A.
+terminated :- violation.
+
+
+% Message handlers
+on grantLicense:   require arbiter; do assert(has_license).
+on grantApproval:  require arbiter; do assert(has_approval).
+on commission:     require arbiter; do assert(is_commissioned).
+
+on declareUse:     require arbiter; do assert(use).
+on declarePublish: require arbiter; do assert(publish).
+on declareComment: require arbiter; do assert(comment).
+on declareRemove:  require arbiter; do assert(remove).
+
+arbiter :- sender(Sender), arbiter(Sender).
+
