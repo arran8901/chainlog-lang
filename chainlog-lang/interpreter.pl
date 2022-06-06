@@ -67,6 +67,9 @@ chainlog_builtin(nth1(_, _, _)).
 
 
 % Query interpreter.
+chainlog_query(Goal) :-
+  var(Goal), !,
+  throw(error(instantiation_error, _)).
 chainlog_query(true) :- !.
 chainlog_query(Goal) :-
   chainlog_builtin(Goal), !,
