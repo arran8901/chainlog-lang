@@ -8,16 +8,16 @@ consignee_smart_sensor('chainlog1edc9s9kpgrssvxusp3kllkt7e03pmse7u6n8vv').
 shipping_cost(10).
 
 damaged(ShipmentID) :-
-  monitoring_data(ShipmentID, _, Temp, _, _),
+  monitoring_data(ShipmentID, Temp, _, _),
   not between(10, 12, Temp).
 damaged(ShipmentID) :-
-  monitoring_data(ShipmentID, _, _, Humidity, _),
+  monitoring_data(ShipmentID, _, Humidity, _),
   not between(85, 90, Humidity).
 
 partial_refund(ShipmentID, ShipTime) :-
   day(Days),
   ShipTime >= 3 * Days,
-  ShipTime =< 4 * Days,
+  ShipTime < 4 * Days,
   not damaged(ShipmentID).
 
 total_refund(_ShipmentID, ShipTime) :-
@@ -49,10 +49,10 @@ on shipmentDispatched(ShipmentID):
   if      time(DispatchTime);
   do      assert(dispatched(ShipmentID, DispatchTime)).
 
-on monitoringData(ShipmentID, Location, Temp, Humidity):
+on monitoringData(ShipmentID, Temp, Humidity):
   require sender(Sender), carrier_smart_sensor(Sender);
   if      time(Time);
-  do      assert(monitoring_data(ShipmentID, Location, Temp, Humidity, Time)).
+  do      assert(monitoring_data(ShipmentID, Temp, Humidity, Time)).
 
 on shipmentDelivered(ShipmentID):
   require sender(Sender), consignee_smart_sensor(Sender);

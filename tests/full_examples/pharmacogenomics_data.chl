@@ -1,0 +1,8 @@
+query(Gene, Variant, Drug, Observations) :-
+  find_all(observation(Gene, Variant, Drug, Outcome, Relation, SideEffect),
+           observation(Gene, Variant, Drug, Outcome, Relation, SideEffect),
+           Observations).
+
+on insert(Gene, Variant, Drug, Outcome, Relation, SideEffect):
+  do assert(observation(Gene, Variant, Drug, Outcome, Relation, SideEffect)).
+

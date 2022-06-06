@@ -313,7 +313,7 @@ func TestShippingNoRefund(t *testing.T) {
 	i.Assert(actions[0].(AssertAction).Term)
 
 	// Add monitoring data with no violations, expect single assert monitoring_data.
-	actions, err = i.Message(`monitoringData(23, [0, 0], 10, 89)`, &MessageContext{
+	actions, err = i.Message(`monitoringData(23, 10, 89)`, &MessageContext{
 		Sender: carrier_smart_sensor,
 		Time:   1654905600, // Jun 11
 	})
@@ -322,8 +322,8 @@ func TestShippingNoRefund(t *testing.T) {
 	}
 	if !(len(actions) == 1 &&
 		actions[0].Kind() == "assert" &&
-		actions[0].(AssertAction).Term == "monitoring_data(23,[0,0],10,89,1654905600)") {
-		t.Fatalf("Expected actions [assert(monitoring_data(23,[0,0],10,89,1654905600))], got %s", actions)
+		actions[0].(AssertAction).Term == "monitoring_data(23,10,89,1654905600)") {
+		t.Fatalf("Expected actions [assert(monitoring_data(23,10,89,1654905600))], got %s", actions)
 	}
 	i.Assert(actions[0].(AssertAction).Term)
 
@@ -383,7 +383,7 @@ func TestShippingDamagedTotalRefund(t *testing.T) {
 	i.Assert(actions[0].(AssertAction).Term)
 
 	// Add monitoring data with temperature violation, expect single assert monitoring_data.
-	actions, err := i.Message(`monitoringData(92, [0, 0], 13, 85)`, &MessageContext{
+	actions, err := i.Message(`monitoringData(92, 13, 85)`, &MessageContext{
 		Sender: carrier_smart_sensor,
 		Time:   1654905600, // Jun 11
 	})
@@ -392,8 +392,8 @@ func TestShippingDamagedTotalRefund(t *testing.T) {
 	}
 	if !(len(actions) == 1 &&
 		actions[0].Kind() == "assert" &&
-		actions[0].(AssertAction).Term == "monitoring_data(92,[0,0],13,85,1654905600)") {
-		t.Fatalf("Expected actions [assert(monitoring_data(92,[0,0],13,85,1654905600))], got %s", actions)
+		actions[0].(AssertAction).Term == "monitoring_data(92,13,85,1654905600)") {
+		t.Fatalf("Expected actions [assert(monitoring_data(92,13,85,1654905600))], got %s", actions)
 	}
 	i.Assert(actions[0].(AssertAction).Term)
 
@@ -454,7 +454,7 @@ func TestShippingLateTotalRefund(t *testing.T) {
 	i.Assert(actions[0].(AssertAction).Term)
 
 	// Add monitoring data with no violations.
-	actions, _ = i.Message(`monitoringData(2, [0, 0], 11, 86)`, &MessageContext{
+	actions, _ = i.Message(`monitoringData(2, 11, 86)`, &MessageContext{
 		Sender: carrier_smart_sensor,
 		Time:   1654905600, // Jun 11
 	})
@@ -516,7 +516,7 @@ func TestShippingPartialRefund(t *testing.T) {
 	i.Assert(actions[0].(AssertAction).Term)
 
 	// Add monitoring data with no violations.
-	actions, _ = i.Message(`monitoringData(19, [0, 0], 12, 87)`, &MessageContext{
+	actions, _ = i.Message(`monitoringData(19, 12, 87)`, &MessageContext{
 		Sender: carrier_smart_sensor,
 		Time:   1654905600, // Jun 11
 	})
@@ -545,6 +545,53 @@ func TestShippingPartialRefund(t *testing.T) {
 		actions[1].(TransferAction).Value == halfCost) {
 		t.Fatalf("Expected actions [transfer(%s,%d), transfer(%s,%d)], got: %s", supplier, halfCost, carrier, halfCost, actions)
 	}
+}
+
+func TestPharmacogenomicsData(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/pharmacogenomics_data.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	// Insert some data
+	actions, err := i.Message("insert('HLA-B', 57, 'abacavir', 'Improved', true, false)", &MessageContext{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "observation('HLA-B',57,abacavir,'Improved',true,false)") {
+		t.Fatalf("Expected actions [assert(observation('HLA-B',57,abacavir,'Improved',true,false))], got %s", actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+
+	actions, _ = i.Message(`insert('HLA-B', 49, 'abacavir', 'Improved', true, false)`, &MessageContext{})
+	i.Assert(actions[0].(AssertAction).Term)
+	actions, _ = i.Message(`insert('HLA-B', 57, 'abacavir', 'Deteriorated', true, true)`, &MessageContext{})
+	i.Assert(actions[0].(AssertAction).Term)
+	actions, _ = i.Message(`insert('test', 49, 'abacavir', 'Improved', true, false)`, &MessageContext{})
+	i.Assert(actions[0].(AssertAction).Term)
+	actions, _ = i.Message(`insert('HLA-B', 49, 'test', 'Improved', true, false)`, &MessageContext{})
+	i.Assert(actions[0].(AssertAction).Term)
+	actions, _ = i.Message(`insert('HLA-B', 57, 'abacavir', 'Unchanged', true, false)`, &MessageContext{})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	expectQueryDerivations(t, i, `query('HLA-B', _, _, Observations)`,
+		&Derivation{Successful: true, Unifications: map[string]string{
+			"Observations": "[observation('HLA-B',57,abacavir,'Improved',true,false),observation('HLA-B',49,abacavir,'Improved',true,false),observation('HLA-B',57,abacavir,'Deteriorated',true,true),observation('HLA-B',49,test,'Improved',true,false),observation('HLA-B',57,abacavir,'Unchanged',true,false)]",
+		}},
+		&Derivation{Successful: false},
+	)
+
+	expectQueryDerivations(t, i, `query(_, 49, 'abacavir', Observations)`,
+		&Derivation{Successful: true, Unifications: map[string]string{
+			"Observations": "[observation('HLA-B',49,abacavir,'Improved',true,false),observation(test,49,abacavir,'Improved',true,false)]",
+		}},
+		&Derivation{Successful: false},
+	)
 }
 
 func expectQueryDerivations(t *testing.T, i *Interpreter, query string, expectedDerivations ...*Derivation) {
