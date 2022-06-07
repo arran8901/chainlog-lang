@@ -89,6 +89,10 @@ chainlog_query(Goal) :-
 chainlog_query(Goal) :-
   dyn Goal.
 
+chainlog_query(Goal, query_ctx(Sender, Time, Balance)) :-
+  % Here we just reuse the with_msg_ctx wrapper with a value of 0
+  chainlog_with_msg_ctx(chainlog_query(Goal), msg_ctx(Sender, 0, Time, Balance)).
+
 
 % Message interpreter
 chainlog_msg(MsgTerm, MsgCtx, ActionsList) :-
@@ -205,6 +209,11 @@ chainlog_reserved_name(or).
 chainlog_reserved_name(not).
 chainlog_reserved_name(on).
 chainlog_reserved_name(dyn).
+% Context predicates are reserved.
+chainlog_reserved_name(sender).
+chainlog_reserved_name(value).
+chainlog_reserved_name(time).
+chainlog_reserved_name(balance).
 % Names beginning with 'chainlog' are reserved.
 chainlog_reserved_name(Name) :- atom_concat(chainlog, _, Name).
 % Names beginning with '$' are reserved.

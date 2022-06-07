@@ -82,6 +82,14 @@ func (d *QueryIterator) Next() (*Derivation, error) {
 // Address is the address of an account.
 type Address string
 
+// QueryContext contains contextual information about a Chainlog query.
+type QueryContext struct {
+	Sender Address
+	Time   int64
+
+	Balance uint64
+}
+
 // MessageContext contains contextual information about a Chainlog message.
 type MessageContext struct {
 	Sender Address
@@ -137,6 +145,10 @@ func (a TransferAction) String() string {
 	return fmt.Sprintf("transfer(%s, %d)", a.ToAddress, a.Value)
 }
 
+func (queryCtx *QueryContext) asChainlogTerm() string {
+	return fmt.Sprintf("query_ctx('%s', %d, %d)", string(queryCtx.Sender), queryCtx.Time, queryCtx.Balance)
+}
+
 // asChainlogTerm formats the message context into a Chainlog term and returns the
 // string representation.
 func (msgCtx *MessageContext) asChainlogTerm() string {
@@ -189,6 +201,18 @@ func (i *Interpreter) ConsultWithDynamicKB(program string, dynamicKB []string) e
 func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
 	// TODO: injection vulnerability
 	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query((%s)).`, goal))
+	if err != nil {
+		return nil, err
+	}
+	return &QueryIterator{sols}, nil
+}
+
+// QueryWithContext submits a Chainlog query in the given query context. Returns a
+// QueryIterator of derivations.
+func (i *Interpreter) QueryWithContext(goal string, queryCtx *QueryContext) (*QueryIterator, error) {
+	var queryCtxTerm string = queryCtx.asChainlogTerm()
+
+	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query((%s), (%s)).`, goal, queryCtxTerm))
 	if err != nil {
 		return nil, err
 	}

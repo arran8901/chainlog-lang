@@ -81,15 +81,20 @@ func main() {
 				sendMessage(submission[1:], msgCtx, i)
 			default:
 				// Query
-				queryGoal(submission, i, scanner)
+				queryCtx := &chainlog.QueryContext{
+					Sender:  msgCtx.Sender,
+					Time:    msgCtx.Time,
+					Balance: msgCtx.Balance,
+				}
+				queryGoal(submission, queryCtx, i, scanner)
 			}
 		}
 	}
 }
 
 // queryGoal processes a query for a given single goal term.
-func queryGoal(goal string, i *chainlog.Interpreter, scanner *bufio.Scanner) {
-	itr, err := i.Query(goal)
+func queryGoal(goal string, queryCtx *chainlog.QueryContext, i *chainlog.Interpreter, scanner *bufio.Scanner) {
+	itr, err := i.QueryWithContext(goal, queryCtx)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
