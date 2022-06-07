@@ -101,9 +101,11 @@ chainlog_query(Goal, QueryCtx) :-
 % QueryCtx: a query context (see chainlog_set_query_ctx).
 chainlog_with_query_ctx(Goal, QueryCtx) :-
   chainlog_set_query_ctx(QueryCtx),
-  (  catch(Goal, Error, (chainlog_clear_query_ctx, throw(Error)))
-  -> chainlog_clear_query_ctx
-  ;  chainlog_clear_query_ctx, fail).
+  catch(Goal, Error, (chainlog_clear_query_ctx, throw(Error))),
+  chainlog_clear_query_ctx.
+chainlog_with_query_ctx(_, _) :-
+  chainlog_clear_query_ctx,
+  fail.
 
 % chainlog_set_query_ctx(+QueryCtx)
 %
