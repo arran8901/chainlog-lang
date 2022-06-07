@@ -10,9 +10,7 @@ state(unsuccessful) :- past_deadline, not reached_goal.
 state(successful)   :- past_deadline, reached_goal, not claimed.
 state(closed)       :- claimed.
 
-total_funded_by(Funder, Total) :- sum_all(Contribution, funded(Funder, Contribution), Total).
-
-total_raised(Total) :- total_funded_by(_, Total).
+total_raised(Total) :- sum_all(Contribution, funded(_, Contribution), Total).
 
 
 on contribute:
@@ -29,7 +27,7 @@ on claimFunds:
 
 on refund:
   require state(unsuccessful);
-  if      sender(Sender), total_funded_by(Sender, Total);
+  require sender(Sender), funded(Sender, Contribution);
   do      retract(funded(Sender, _)),
-          transfer(Sender, Total).
+          transfer(Sender, Contribution).
 
