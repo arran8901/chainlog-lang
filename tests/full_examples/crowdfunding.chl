@@ -1,0 +1,35 @@
+beneficiary('chainlog1n0tekhkd77ttvpac52jst8764l2qm952ghygvz').
+deadline(1656633600).  % Jul 1
+goal(100000).
+
+past_deadline :- time(Now), deadline(Deadline), Now > Deadline.
+reached_goal :- total_raised(Total), goal(Goal), Total >= Goal.
+
+state(fundraising)  :- not past_deadline.
+state(unsuccessful) :- past_deadline, not reached_goal.
+state(successful)   :- past_deadline, reached_goal, not claimed.
+state(closed)       :- claimed.
+
+total_funded_by(Funder, Total) :- sum_all(Contribution, funded(Funder, Contribution), Total).
+
+total_raised(Total) :- total_funded_by(_, Total).
+
+
+on contribute:
+  require state(fundraising);
+  if      sender(Funder), value(Contribution);
+  do      assert(funded(Funder, Contribution)).
+
+on claimFunds:
+  require state(successful);
+  require sender(Sender), beneficiary(Sender);
+  if      total_raised(Total);
+  do      assert(claimed),
+          transfer(Sender, Total).
+
+on refund:
+  require state(unsuccessful);
+  if      sender(Sender), total_funded_by(Sender, Total);
+  do      retract(funded(Sender, _)),
+          transfer(Sender, Total).
+

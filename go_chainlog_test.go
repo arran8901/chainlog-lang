@@ -609,13 +609,242 @@ func TestLicence(t *testing.T) {
 	expectQueryDerivations(t, i, `forbidden(comment)`, &Derivation{Successful: true})
 }
 
+func TestCrowdfunding(t *testing.T) {
+	fileBytes, _ := ioutil.ReadFile("tests/full_examples/crowdfunding.chl")
+	fileSource := string(fileBytes)
+
+	i := newTestInterpreter()
+	if err := i.Consult(fileSource); err != nil {
+		panic(err)
+	}
+
+	const beneficiary Address = Address("chainlog1n0tekhkd77ttvpac52jst8764l2qm952ghygvz")
+
+	// past_deadline should be false before deadline.
+	expectQueryDerivationsWithContext(t, i, `past_deadline`, &QueryContext{
+		Time: 1655164800, // Jun 14
+	}, &Derivation{Successful: false})
+	// reached_goal should be false
+	expectQueryDerivations(t, i, `reached_goal`, &Derivation{Successful: false})
+	// total_raised should be 0.
+	expectQueryDerivations(t, i, `total_raised(Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "0"}},
+		&Derivation{Successful: false},
+	)
+	// state should be fundraising (only).
+	expectQueryDerivationsWithContext(t, i, `state(State)`, &QueryContext{
+		Time:    1655164800, // Jun 14
+		Balance: 0,
+	},
+		&Derivation{Successful: true, Unifications: map[string]string{"State": "fundraising"}},
+		&Derivation{Successful: false},
+	)
+
+	// Contribute should assert funded/2.
+	actions, err := i.Message(`contribute`, &MessageContext{
+		Sender:  "funder1",
+		Value:   20000,
+		Time:    1655164800,
+		Balance: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 1 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "funded(funder1,20000)") {
+		t.Fatalf("Expected actions [assert(funded(funder1,20000))], got %s", actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// reached_goal should still be false.
+	expectQueryDerivations(t, i, `reached_goal`, &Derivation{Successful: false})
+	// total_raised should be 20000
+	expectQueryDerivations(t, i, `total_raised(Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "20000"}},
+		&Derivation{Successful: false},
+	)
+	// total_funded_by should be 20000 for funder1.
+	expectQueryDerivations(t, i, `total_funded_by(funder1, Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "20000"}},
+		&Derivation{Successful: false},
+	)
+
+	// Contribute some more from different funders.
+	actions, _ = i.Message(`contribute`, &MessageContext{
+		Sender:  "funder2",
+		Value:   50000,
+		Time:    1655251200, // Jun 15
+		Balance: 0,
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+	actions, _ = i.Message(`contribute`, &MessageContext{
+		Sender:  "funder3",
+		Value:   15000,
+		Time:    1655251200, // Jun 15
+		Balance: 0,
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+
+	// reached_goal should still be false.
+	expectQueryDerivations(t, i, `reached_goal`, &Derivation{Successful: false})
+	// total_raised should be 85000
+	expectQueryDerivations(t, i, `total_raised(Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "85000"}},
+		&Derivation{Successful: false},
+	)
+	// total_funded_by should be 20000 for funder1.
+	expectQueryDerivations(t, i, `total_funded_by(funder1, Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "20000"}},
+		&Derivation{Successful: false},
+	)
+	// total_funded_by should be 50000 for funder2.
+	expectQueryDerivations(t, i, `total_funded_by(funder2, Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "50000"}},
+		&Derivation{Successful: false},
+	)
+	// total_funded_by should be 15000 for funder3.
+	expectQueryDerivations(t, i, `total_funded_by(funder3, Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "15000"}},
+		&Derivation{Successful: false},
+	)
+	// state should still be fundraising (only).
+	expectQueryDerivationsWithContext(t, i, `state(State)`, &QueryContext{
+		Time:    1655251200, // Jun 15
+		Balance: 85000,
+	},
+		&Derivation{Successful: true, Unifications: map[string]string{"State": "fundraising"}},
+		&Derivation{Successful: false},
+	)
+
+	// If the deadline is reached at this point, state should become unsuccessful.
+	expectQueryDerivationsWithContext(t, i, `state(State)`, &QueryContext{
+		Time: 1656720000, // Jul 2
+	},
+		&Derivation{Successful: true, Unifications: map[string]string{"State": "unsuccessful"}},
+		&Derivation{Successful: false},
+	)
+	// It should not be possible to claimFunds.
+	_, err = i.Message(`claimFunds`, &MessageContext{
+		Sender:  beneficiary,
+		Value:   0,
+		Time:    1656720000, // Jul 2
+		Balance: 85000,
+	})
+	if !(strings.Contains(err.Error(), "require_error") && strings.Contains(err.Error(), "state(successful)")) {
+		t.Fatalf("Expected require_error with state(successful) but got %s", err.Error())
+	}
+	// It should be possible to refund.
+	actions, err = i.Message(`refund`, &MessageContext{
+		Sender:  "funder2",
+		Value:   0,
+		Time:    1656720000, // Jul 2
+		Balance: 85000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 2 &&
+		actions[0].Kind() == "retract" &&
+		strings.HasPrefix(actions[0].(RetractAction).Term, "funded(funder2,") &&
+		actions[1].Kind() == "transfer" &&
+		actions[1].(TransferAction).ToAddress == "funder2" &&
+		actions[1].(TransferAction).Value == 50000) {
+		t.Fatalf("Expected actions [retract(funder2, _), transfer(funder2, 50000)], got %s", actions)
+	}
+	i.Retract(actions[0].(RetractAction).Term)
+
+	// It should be possible for a funder to contribute again.
+	actions, _ = i.Message(`contribute`, &MessageContext{
+		Sender:  "funder1",
+		Value:   70000,
+		Time:    1655337600, // Jun 16
+		Balance: 0,
+	})
+	i.Assert(actions[0].(AssertAction).Term)
+	// reached_goal should be true.
+	expectQueryDerivations(t, i, `reached_goal`, &Derivation{Successful: true}, &Derivation{Successful: false})
+	// total_raised should be 105000.
+	expectQueryDerivations(t, i, `total_raised(Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "105000"}},
+		&Derivation{Successful: false},
+	)
+	// state should still be fundraising (only).
+	expectQueryDerivationsWithContext(t, i, `state(State)`, &QueryContext{
+		Time:    1655337600, // Jun 16
+		Balance: 105000,
+	},
+		&Derivation{Successful: true, Unifications: map[string]string{"State": "fundraising"}},
+		&Derivation{Successful: false},
+	)
+	// total_funded_by should be 90000 for funder1.
+	expectQueryDerivations(t, i, `total_funded_by(funder1, Total)`,
+		&Derivation{Successful: true, Unifications: map[string]string{"Total": "90000"}},
+		&Derivation{Successful: false},
+	)
+
+	// If the deadline is reached at this point, state should become successful.
+	expectQueryDerivationsWithContext(t, i, `state(State)`, &QueryContext{
+		Time: 1656720000, // Jul 2
+	},
+		&Derivation{Successful: true, Unifications: map[string]string{"State": "successful"}},
+		&Derivation{Successful: false},
+	)
+	// It should not be possible to refund.
+	_, err = i.Message(`refund`, &MessageContext{
+		Sender:  "funder1",
+		Time:    1656720000, // Jul 2
+		Balance: 105000,
+	})
+	if !(strings.Contains(err.Error(), "require_error") && strings.Contains(err.Error(), "state(unsuccessful)")) {
+		t.Fatalf("Expected require_error with state(unsuccessful) but got %s", err.Error())
+	}
+	// It should be posssible to claimFunds.
+	actions, err = i.Message(`claimFunds`, &MessageContext{
+		Sender:  beneficiary,
+		Time:    1656720000, // Jul 2
+		Balance: 105000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(len(actions) == 2 &&
+		actions[0].Kind() == "assert" &&
+		actions[0].(AssertAction).Term == "claimed" &&
+		actions[1].Kind() == "transfer" &&
+		actions[1].(TransferAction).ToAddress == string(beneficiary) &&
+		actions[1].(TransferAction).Value == 105000) {
+		t.Fatalf("Expected actions [assert(claimed), transfer(%s, 105000)], got %s", beneficiary, actions)
+	}
+	i.Assert(actions[0].(AssertAction).Term)
+	// state should become closed.
+	expectQueryDerivationsWithContext(t, i, `state(State)`, &QueryContext{
+		Time: 1656720000, // Jul 2
+	},
+		&Derivation{Successful: true, Unifications: map[string]string{"State": "closed"}},
+		&Derivation{Successful: false},
+	)
+}
+
 func expectQueryDerivations(t *testing.T, i *Interpreter, query string, expectedDerivations ...*Derivation) {
 	itr, err := i.Query(query)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer itr.Close()
+	expectQueryDerivationsHelper(t, i, query, itr, expectedDerivations...)
+}
 
+func expectQueryDerivationsWithContext(t *testing.T, i *Interpreter, query string, queryCtx *QueryContext, expectedDerivations ...*Derivation) {
+	itr, err := i.QueryWithContext(query, queryCtx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer itr.Close()
+	expectQueryDerivationsHelper(t, i, query, itr, expectedDerivations...)
+}
+
+func expectQueryDerivationsHelper(t *testing.T, i *Interpreter, query string, itr *QueryIterator, expectedDerivations ...*Derivation) {
 	for i, expectedDerivation := range expectedDerivations {
 		actualDerivation, err := itr.Next()
 		if err != nil {
