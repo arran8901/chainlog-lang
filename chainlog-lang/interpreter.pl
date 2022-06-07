@@ -89,9 +89,44 @@ chainlog_query(Goal) :-
 chainlog_query(Goal) :-
   dyn Goal.
 
-chainlog_query(Goal, query_ctx(Sender, Time, Balance)) :-
-  % Here we just reuse the with_msg_ctx wrapper with a value of 0
-  chainlog_with_msg_ctx(chainlog_query(Goal), msg_ctx(Sender, 0, Time, Balance)).
+chainlog_query(Goal, QueryCtx) :-
+  chainlog_with_query_ctx(chainlog_query(Goal), QueryCtx).
+
+% chainlog_with_query_ctx(:Goal, QueryCtx)
+%
+% Sets up query context QueryCtx, calls Goal, clears QueryCtx.
+% The context is cleared whether Goal succeeds, fails or throws an exception.
+%
+% Goal: a callable term.
+% QueryCtx: a query context (see chainlog_set_query_ctx).
+chainlog_with_query_ctx(Goal, QueryCtx) :-
+  chainlog_set_query_ctx(QueryCtx),
+  (  catch(Goal, Error, (chainlog_clear_query_ctx, throw(Error)))
+  -> chainlog_clear_query_ctx
+  ;  chainlog_clear_query_ctx, fail).
+
+% chainlog_set_query_ctx(+QueryCtx)
+%
+% Sets the current query context to QueryCtx.
+% Throws `type_error` if the query context is malformed.
+%
+% QueryCtx: a compound term query_ctx(Time: int, Balance: int).
+chainlog_set_query_ctx(query_ctx(Time, Balance)) :-
+  integer(time),
+  integer(Balance), !,
+  assertz(time(Time)),
+  assertz(balance(Balance)).
+chainlog_set_query_ctx(QueryCtx) :-
+  throw(error(type_error(compound, MsgCtx), malformed_query_ctx)).
+
+% chainlog_clear_query_ctx
+%
+% Clears the current query context.
+chainlog_clear_query_ctx :-
+  retractall(sender(_)),
+  retractall(value(_)),
+  retractall(time(_)),
+  retractall(balance(_)).
 
 
 % Message interpreter

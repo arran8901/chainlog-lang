@@ -84,8 +84,7 @@ type Address string
 
 // QueryContext contains contextual information about a Chainlog query.
 type QueryContext struct {
-	Sender Address
-	Time   int64
+	Time int64
 
 	Balance uint64
 }
@@ -146,7 +145,7 @@ func (a TransferAction) String() string {
 }
 
 func (queryCtx *QueryContext) asChainlogTerm() string {
-	return fmt.Sprintf("query_ctx('%s', %d, %d)", string(queryCtx.Sender), queryCtx.Time, queryCtx.Balance)
+	return fmt.Sprintf("query_ctx(%d, %d)", queryCtx.Time, queryCtx.Balance)
 }
 
 // asChainlogTerm formats the message context into a Chainlog term and returns the

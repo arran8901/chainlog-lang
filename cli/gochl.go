@@ -82,7 +82,6 @@ func main() {
 			default:
 				// Query
 				queryCtx := &chainlog.QueryContext{
-					Sender:  msgCtx.Sender,
 					Time:    msgCtx.Time,
 					Balance: msgCtx.Balance,
 				}
