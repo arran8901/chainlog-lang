@@ -112,7 +112,7 @@ chainlog_with_query_ctx(Goal, QueryCtx) :-
 %
 % QueryCtx: a compound term query_ctx(Time: int, Balance: int).
 chainlog_set_query_ctx(query_ctx(Time, Balance)) :-
-  integer(time),
+  integer(Time),
   integer(Balance), !,
   assertz(time(Time)),
   assertz(balance(Balance)).

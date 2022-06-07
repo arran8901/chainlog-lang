@@ -69,7 +69,7 @@ The interpreter allows you to submit queries such as `age(X, A), A >= 40` as an 
 
 It also allows you to simulate message calls by beginning input with `$` and entering a message term. For example, `$ withdraw(30)`. The actions that would result from such a message will be displayed.
 
-Messages execute in a _message context_, which includes contextual information about the message (sender and value), current block (time) and contract (balance) at the time of the message. `gochl` simulates a message context. To see the context, use the context command `:` in the prompt:
+Queries and messages execute in a _query context_ and _message context_ respectively. This includes contextual information about the state of the blockchain and contract at the time of the query or message. A Chainlog program has access to the context by way of _context predicates_. For a query, the context includes the current block timestamp (available via `time/1`) and the contract's balance (available via `balance/1`). A message includes both of these but also the message sender (available via `sender/1`) and the number of tokens sent with the message (available via predicate `value/1`). `gochl` simulates a context for queries and messages. To see the simulated context, use the _context command_ `:` in the prompt:
 ```
 ?- :
 ```
