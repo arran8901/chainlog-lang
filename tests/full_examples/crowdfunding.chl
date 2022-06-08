@@ -1,5 +1,5 @@
 beneficiary('chainlog1n0tekhkd77ttvpac52jst8764l2qm952ghygvz').
-deadline(1656633600).  % Jul 1
+deadline(1656633600).
 goal(100000).
 
 past_deadline :- time(Now), deadline(Deadline), Now > Deadline.
