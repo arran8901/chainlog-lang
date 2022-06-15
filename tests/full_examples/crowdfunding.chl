@@ -27,7 +27,8 @@ on claimFunds:
 
 on refund:
   require state(unsuccessful);
-  require sender(Sender), funded(Sender, Contribution);
+  if      sender(Sender),
+          sum_all(Contribution, funded(Sender, Contribution), Total);
   do      retract(funded(Sender, _)),
-          transfer(Sender, Contribution).
+          transfer(Sender, Total).
 
