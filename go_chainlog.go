@@ -199,7 +199,7 @@ func (i *Interpreter) ConsultWithDynamicKB(program string, dynamicKB []string) e
 // QueryIterator of derivations.
 func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
 	// TODO: injection vulnerability
-	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query((%s)).`, goal))
+	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query_dl((%s)).`, goal))
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (i *Interpreter) Query(goal string) (*QueryIterator, error) {
 func (i *Interpreter) QueryWithContext(goal string, queryCtx *QueryContext) (*QueryIterator, error) {
 	var queryCtxTerm string = queryCtx.asChainlogTerm()
 
-	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query((%s), (%s)).`, goal, queryCtxTerm))
+	sols, err := i.prologInterpreter.Query(fmt.Sprintf(`chainlog_query_dl((%s), (%s)).`, goal, queryCtxTerm))
 	if err != nil {
 		return nil, err
 	}

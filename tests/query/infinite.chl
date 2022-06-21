@@ -1,0 +1,5 @@
+infinite :- infinite.
+
+
+test :-
+  expect_query_depth_limit_exceeded(infinite).

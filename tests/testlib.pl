@@ -24,6 +24,12 @@ expect_query(Query, Expectations) :-
 expect_query(Query, _) :-
   throw(error(test_error(expect_query), query_fail(Query))).
 
+% expect_query_depth_limit_exceeded(+Query)
+% Succeeds if Chainlog query of Query throws depth limit exceeded error.
+expect_query_depth_limit_exceeded(Query) :-
+  catch((chainlog_query_dl(Query), fail), error(depth_limit_exceeded, _), true), !
+  ; throw(error(test_error(expect_query_depth_limit_exceeded), query_within_depth_limit(Query))).
+
 
 % expect_msg(+MsgTerm, +MsgCtx, ?ExpectedActionsList)
 % Succeeds if submitting message MsgTerm with context MsgCtx produces actions ExpectedActionsList.

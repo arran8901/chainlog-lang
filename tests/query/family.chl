@@ -11,6 +11,7 @@ parent(jonathan, kevin).
 
 ancestor(X, Y) :- parent(X, Y).
 ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y).
+ancestor(alvin, leo).
 
 test :-
   expect_query_true(ancestor(alvin, kevin)).

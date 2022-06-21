@@ -111,56 +111,91 @@ chainlog_query(Goal, QueryCtx) :-
 % Limit: integer depth limit.
 chainlog_depth_limit(4096).
 
-% chainlog_query_dl(:Goal, +Depth, +Limit, -Max)
+% '$log_max_depth' determines whether or not the max depth of queries will be tracked.
+:- dynamic('$log_max_depth'/0).
+
+% chainlog_query_dl(:Goal, +Depth, +Limit)
 %
 % Query interpreter with depth limit.
+% Note: if '$log_max_depth' is set, '$reset_max_depth' should be run before calling this
+% predicate.
 %
 % Goal: a callable goal.
 % Depth: the current depth.
 % Limit: maximum allowed depth of proof tree.
-% Max: the maximum depth reached.
-chainlog_query_dl(Goal, _, _, _) :-
+chainlog_query_dl(Goal, _, _) :-
   var(Goal), !,
   throw(error(instantiation_error, _)).
-chainlog_query_dl(_, Depth, Limit, _) :-
+chainlog_query_dl(_, Depth, Limit) :-
   Depth > Limit, !,
   throw(error(depth_limit_exceeded, Limit)).
-chainlog_query_dl(true, Depth, _, Depth) :- !.
-chainlog_query_dl(Goal, Depth, _, Depth) :-
+chainlog_query_dl(true, _, _) :- !.
+chainlog_query_dl(Goal, _, _) :-
   chainlog_builtin(Goal), !,
   call(Goal).
-chainlog_query_dl(Goal, Depth, _, Depth) :-
+chainlog_query_dl(Goal, _, _) :-
   chainlog_lib(Goal), !,
   call(Goal).
-chainlog_query_dl((G1, G2), Depth, Limit, Max) :-
-  !, chainlog_query_dl(G1, Depth, Limit, Max1),
-  chainlog_query_dl(G2, Depth, Limit, Max2),
-  Max is max(Max1, Max2).
-chainlog_query_dl(not Goal, Depth, Limit, Max) :-
-  !, \+ chainlog_query_dl(Goal, Depth, Limit, Max).
-chainlog_query_dl(G1 or G2, Depth, Limit, Max) :-
-  !, (chainlog_query_dl(G1, Depth, Limit, Max)
-      ; chainlog_query_dl(G2, Depth, Limit, Max)).
-chainlog_query_dl(Goal, Depth, Limit, Max) :-
+chainlog_query_dl((G1, G2), Depth, Limit) :-
+  !, chainlog_query_dl(G1, Depth, Limit),
+  chainlog_query_dl(G2, Depth, Limit).
+chainlog_query_dl(not Goal, Depth, Limit) :-
+  !, \+ chainlog_query_dl(Goal, Depth, Limit).
+chainlog_query_dl(G1 or G2, Depth, Limit) :-
+  !, (chainlog_query_dl(G1, Depth, Limit)
+      ; chainlog_query_dl(G2, Depth, Limit)).
+chainlog_query_dl(Goal, Depth, Limit) :-
   Depth1 is Depth + 1,
   clause(Goal, Body),
-  chainlog_query_dl(Body, Depth1, Limit, Max).
-chainlog_query_dl(Goal, Depth, _, Depth) :-
+  '$update_max_depth'(Depth1),
+  chainlog_query_dl(Body, Depth1, Limit).
+chainlog_query_dl(Goal, _, _) :-
   dyn Goal.
 
-% chainlog_query_dl(:Goal, +QueryCtx, -Max)
+% chainlog_query_dl(:Goal)
+%
+% Query interpreter with depth limit.
+%
+% Goal: a callable goal.
+chainlog_query_dl(Goal) :-
+  chainlog_depth_limit(Limit),
+  '$reset_max_depth', !,
+  chainlog_query_dl(Goal, 0, Limit).
+
+% chainlog_query_dl(:Goal, +QueryCtx)
 %
 % Query interpreter with depth limit and context decorator.
 %
 % Goal: a callable goal.
 % QueryCtx: a query context (see chainlog_set_query_ctx).
-% Max: the maximum depth reached.
-chainlog_query_dl(Goal, QueryCtx, Max) :-
+chainlog_query_dl(Goal, QueryCtx) :-
   chainlog_depth_limit(Limit),
+  '$reset_max_depth', !,
   chainlog_with_query_ctx(
-    chainlog_query_dl(Goal, 0, Limit, Max),
+    chainlog_query_dl(Goal, 0, Limit),
     QueryCtx
   ).
+
+% '$update_max_depth'(+MaxDepth)
+%
+% Updates the value of '$max_depth' if the given max depth is larger.
+%
+% MaxDepth: updated max depth.
+'$update_max_depth'(MaxDepth) :-
+  '$log_max_depth', !,
+  '$max_depth'(OldMaxDepth),
+  (  MaxDepth > OldMaxDepth
+  -> retract('$max_depth'(_)),
+     assertz('$max_depth'(MaxDepth))
+  ;  true).
+'$update_max_depth'(_).
+
+% '$reset_max_depth'
+%
+% Resets '$max_depth' to 0.
+'$reset_max_depth' :-
+  retractall('$max_depth'(_)),
+  assertz('$max_depth'(0)).
 
 % chainlog_with_query_ctx(:Goal, QueryCtx)
 %
