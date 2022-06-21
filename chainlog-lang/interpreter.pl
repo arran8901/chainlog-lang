@@ -194,8 +194,10 @@ chainlog_query_dl(Goal, QueryCtx) :-
 %
 % Resets '$max_depth' to 0.
 '$reset_max_depth' :-
+  '$log_max_depth',
   retractall('$max_depth'(_)),
   assertz('$max_depth'(0)).
+'$reset_max_depth' :- true.
 
 % chainlog_with_query_ctx(:Goal, QueryCtx)
 %
