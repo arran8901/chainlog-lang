@@ -238,7 +238,13 @@ chainlog_clear_query_ctx :-
   retractall(balance(_)).
 
 
-% Message interpreter
+% chainlog_msg(+MsgTerm, +MsgCtx, -ActionsList)
+%
+% Message interpreter (phase 1).
+%
+% MsgTerm: a message term.
+% MsgCtx: a message context (see chainlog_set_msg_ctx).
+% ActionsList: the list of actions from the matched message handler.
 chainlog_msg(MsgTerm, MsgCtx, ActionsList) :-
   % Attempt to unify MsgTerm with a message handler, then call the handler.
   (on MsgTerm: Body),
