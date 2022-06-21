@@ -1,0 +1,16 @@
+parent(alvin, barry).
+parent(barry, cameron).
+parent(cameron, daniel).
+parent(daniel, eric).
+parent(eric, ferdinand).
+parent(ferdinand, gerald).
+parent(gerald, holly).
+parent(holly, isaac).
+parent(isaac, jonathan).
+parent(jonathan, kevin).
+
+ancestor(X, Y) :- parent(X, Y).
+ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y).
+
+test :-
+  expect_query_true(ancestor(alvin, kevin)).
