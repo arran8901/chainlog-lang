@@ -53,8 +53,10 @@ chainlog_builtin(nonvar(_)).
 chainlog_builtin(number(_)).
 chainlog_builtin(ground(_)).
 
+% Built-in predicate between.
 chainlog_builtin(between(_, _, _)).
 
+% List built-in predicates.
 chainlog_builtin(member(_, _)).
 chainlog_builtin(append(_, _, _)).
 chainlog_builtin(length(_, _)).
@@ -66,7 +68,11 @@ chainlog_builtin(nth1(_, _, _)).
 :- dynamic(chainlog_lib/1).
 
 
+% chainlog_query(:Goal)
+%
 % Query interpreter.
+%
+% Goal: a callable goal.
 chainlog_query(Goal) :-
   var(Goal), !,
   throw(error(instantiation_error, _)).
@@ -89,15 +95,79 @@ chainlog_query(Goal) :-
 chainlog_query(Goal) :-
   dyn Goal.
 
+% chainlog_query(:Goal, +QueryCtx)
+%
+% Query interpreter with context decorator.
+%
+% Goal: a callable goal.
+% QueryCtx: a query context (see chainlog_set_query_ctx).
 chainlog_query(Goal, QueryCtx) :-
   chainlog_with_query_ctx(chainlog_query(Goal), QueryCtx).
+
+% chainlog_depth_limit(-Limit)
+%
+% The default Chainlog depth limit
+%
+% Limit: integer depth limit.
+chainlog_depth_limit(4096).
+
+% chainlog_query_dl(:Goal, +Depth, +Limit, -Max)
+%
+% Query interpreter with depth limit.
+%
+% Goal: a callable goal.
+% Depth: the current depth.
+% Limit: maximum allowed depth of proof tree.
+% Max: the maximum depth reached.
+chainlog_query_dl(Goal, _, _, _) :-
+  var(Goal), !,
+  throw(error(instantiation_error, _)).
+chainlog_query_dl(_, Depth, Limit, _) :-
+  Depth > Limit, !,
+  throw(error(depth_limit_exceeded, Limit)).
+chainlog_query_dl(true, Depth, _, Depth) :- !.
+chainlog_query_dl(Goal, Depth, _, Depth) :-
+  chainlog_builtin(Goal), !,
+  call(Goal).
+chainlog_query_dl(Goal, Depth, _, Depth) :-
+  chainlog_lib(Goal), !,
+  call(Goal).
+chainlog_query_dl((G1, G2), Depth, Limit, Max) :-
+  !, chainlog_query_dl(G1, Depth, Limit, Max1),
+  chainlog_query_dl(G2, Depth, Limit, Max2),
+  Max is max(Max1, Max2).
+chainlog_query_dl(not Goal, Depth, Limit, Max) :-
+  !, \+ chainlog_query_dl(Goal, Depth, Limit, Max).
+chainlog_query_dl(G1 or G2, Depth, Limit, Max) :-
+  !, (chainlog_query_dl(G1, Depth, Limit, Max)
+      ; chainlog_query_dl(G2, Depth, Limit, Max)).
+chainlog_query_dl(Goal, Depth, Limit, Max) :-
+  Depth1 is Depth + 1,
+  clause(Goal, Body),
+  chainlog_query_dl(Body, Depth1, Limit, Max).
+chainlog_query_dl(Goal, Depth, _, Depth) :-
+  dyn Goal.
+
+% chainlog_query_dl(:Goal, +QueryCtx, -Max)
+%
+% Query interpreter with depth limit and context decorator.
+%
+% Goal: a callable goal.
+% QueryCtx: a query context (see chainlog_set_query_ctx).
+% Max: the maximum depth reached.
+chainlog_query_dl(Goal, QueryCtx, Max) :-
+  chainlog_depth_limit(Limit),
+  chainlog_with_query_ctx(
+    chainlog_query_dl(Goal, 0, Limit, Max),
+    QueryCtx
+  ).
 
 % chainlog_with_query_ctx(:Goal, QueryCtx)
 %
 % Sets up query context QueryCtx, calls Goal, clears QueryCtx.
 % The context is cleared whether Goal succeeds, fails or throws an exception.
 %
-% Goal: a callable term.
+% Goal: a callable goal.
 % QueryCtx: a query context (see chainlog_set_query_ctx).
 chainlog_with_query_ctx(Goal, QueryCtx) :-
   chainlog_set_query_ctx(QueryCtx),
@@ -119,7 +189,7 @@ chainlog_set_query_ctx(query_ctx(Time, Balance)) :-
   assertz(time(Time)),
   assertz(balance(Balance)).
 chainlog_set_query_ctx(QueryCtx) :-
-  throw(error(type_error(compound, MsgCtx), malformed_query_ctx)).
+  throw(error(type_error(compound, QueryCtx), malformed_query_ctx)).
 
 % chainlog_clear_query_ctx
 %
@@ -151,7 +221,7 @@ chainlog_msg(MsgTerm, _, _) :-
 % Sets up message context MsgCtx, calls Goal, clears MsgCtx.
 % The context is cleared whether Goal succeeds, fails or throws an exception.
 %
-% Goal: a callable term.
+% Goal: a callable goal.
 % MsgCtx: a message context (see chainlog_set_msg_ctx).
 chainlog_with_msg_ctx(Goal, MsgCtx) :-
   chainlog_set_msg_ctx(MsgCtx),
