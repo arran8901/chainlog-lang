@@ -16,7 +16,7 @@ swipl chainlog-lang/interpreter.pl
 ```
 Alternatively, use the provided interactive interpreter `gochl`. See below for details.
 
-## Go-Chainlog: A Go Chainlog Interpreter
+## Go-Chainlog
 
 Go-Chainlog is an abstraction around a Chainlog interpreter and a Prolog engine. It serves as a library for interpreting, querying and executing Chainlog files from Go code. The implementation is found in `go_chainlog.go`.
 
